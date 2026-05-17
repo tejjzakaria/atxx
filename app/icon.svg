@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="10%" r="90%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a6b5e"/>
+      <stop offset="100%" stop-color="#0a2e2a"/>
+    </radialGradient>
+    <linearGradient id="mark" x1="16" y1="10" x2="16" y2="23" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+
+  <!-- Subtle inner highlight -->
+  <rect width="32" height="16" rx="8" fill="white" fill-opacity="0.04"/>
+
+  <!-- ATXX chevron mark (upward V) -->
+  <polyline
+    points="7,23 16,10 25,23"
+    fill="none"
+    stroke="url(#mark)"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

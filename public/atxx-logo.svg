@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" width="200" height="56" fill="none">
+  <defs>
+    <style>
+      @keyframes atxx-draw {
+        from { stroke-dashoffset: 26; }
+        to   { stroke-dashoffset: 0;  }
+      }
+      @keyframes atxx-float {
+        0%, 100% { transform: translateY(0px);  }
+        50%       { transform: translateY(-4px); }
+      }
+      @keyframes atxx-wordmark {
+        from { opacity: 0; transform: translateX(-5px); }
+        to   { opacity: 1; transform: translateX(0);    }
+      }
+
+      .a-l {
+        stroke-dasharray: 26;
+        animation: atxx-draw 0.38s cubic-bezier(.4,0,.2,1) 0.05s both;
+      }
+      .a-r {
+        stroke-dasharray: 26;
+        animation: atxx-draw 0.38s cubic-bezier(.4,0,.2,1) 0.05s both;
+      }
+      .a-chevron {
+        animation: atxx-float 2.2s ease-in-out 0.55s infinite;
+      }
+      .a-wm {
+        animation: atxx-wordmark 0.45s ease-out 0.42s both;
+      }
+    </style>
+
+    <!-- Dark teal rounded-square badge -->
+    <clipPath id="badge-clip">
+      <rect x="0" y="4" width="48" height="48" rx="12"/>
+    </clipPath>
+  </defs>
+
+  <!-- Badge background -->
+  <rect x="0" y="4" width="48" height="48" rx="12" fill="#0d3d38"/>
+
+  <!-- Chevron mark (white on dark) -->
+  <g class="a-chevron">
+    <line class="a-l" x1="24" y1="19" x2="10" y2="37"
+      stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <line class="a-r" x1="24" y1="19" x2="38" y2="37"
+      stroke="white" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    class="a-wm"
+    x="62" y="36"
+    font-family="'DM Sans', system-ui, -apple-system, sans-serif"
+    font-weight="700"
+    font-size="26"
+    letter-spacing="-0.5"
+    fill="#0d3d38"
+  >ATXX</text>
+</svg>
