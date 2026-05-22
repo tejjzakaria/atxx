@@ -79,6 +79,7 @@ export interface StoreDoc {
   };
   apiKey?: string;
   sheetsId?: string;
+  logo?: string;
   content?: Record<string, StoreContent>;
   sections?: SectionInstance[];
   pages?: Record<string, SectionInstance[]>;

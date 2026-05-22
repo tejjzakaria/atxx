@@ -224,12 +224,87 @@ function GeneralTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
 const PALETTE = ["#ec4899","#3b82f6","#f59e0b","#8b5cf6","#10b981","#ef4444","#f97316","#0d9488","#0d3d38","#64748b"];
 
 function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
-  const [color, setColor] = useState(store.color);
+  const [color,        setColor]        = useState(store.color);
+  const [logo,         setLogo]         = useState(store.logo ?? "");
+  const [uploading,    setUploading]    = useState(false);
+  const [uploadError,  setUploadError]  = useState("");
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
-  const { save, saving, saved } = useSave(store._id, onSaved);
+  const { save: saveColor, saving: savingColor, saved: savedColor } = useSave(store._id, onSaved);
+  const { save: saveLogo,  saving: savingLogo,  saved: savedLogo  } = useSave(store._id, onSaved);
+
+  async function handleLogoFile(file: File) {
+    setUploadError("");
+    setUploading(true);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+          storeId: store._id,
+          type: "logo",
+        }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error ?? "Upload failed");
+      }
+      const { uploadUrl, publicUrl } = await res.json();
+      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setLogo(publicUrl);
+      await saveLogo({ logo: publicUrl });
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const isUrl = logo.startsWith("http") || logo.startsWith("/");
 
   return (
     <div className="space-y-4">
+      <Section title="Logo" sub="Shown on your storefront header and footer">
+        <div className="py-5 space-y-4">
+          {logo && (
+            <div className="flex items-center gap-3">
+              {isUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logo} alt="Logo preview" className="h-12 max-w-[160px] object-contain rounded-lg border border-gray-100" />
+              ) : (
+                <span className="text-sm font-semibold text-gray-700">{logo}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => { setLogo(""); saveLogo({ logo: "" }); }}
+                className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2 transition-colors">
+                Remove
+              </button>
+            </div>
+          )}
+          <label className={`inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors cursor-pointer ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {uploading ? "Uploading…" : logo ? "Replace logo" : "Upload logo"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="sr-only"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoFile(f); e.target.value = ""; }}
+            />
+          </label>
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+          <p className="text-xs text-gray-400">JPEG, PNG, WebP or GIF · max 10 MB</p>
+        </div>
+        {savedLogo && (
+          <p className="text-xs text-[#0d9488] font-semibold flex items-center gap-1 pb-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Saved
+          </p>
+        )}
+      </Section>
+
       <Section title="Brand Color" sub="Used for your store avatar and accents">
         <div className="py-5">
           <p className="text-sm font-semibold text-gray-700 mb-3">Pick a color</p>
@@ -254,7 +329,7 @@ function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => voi
             </div>
           </div>
         </div>
-        <SaveButton onClick={() => save({ color })} saving={saving} saved={saved} />
+        <SaveButton onClick={() => saveColor({ color })} saving={savingColor} saved={savedColor} />
       </Section>
 
       <Section title="Dashboard Theme" sub="How the ATXX dashboard looks for your team">

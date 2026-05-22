@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { filename, contentType, size, storeId } = await req.json();
+  const { filename, contentType, size, storeId, type } = await req.json();
 
   if (!ALLOWED_TYPES.includes(contentType)) {
     return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
@@ -23,7 +23,9 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = filename?.split(".").pop()?.toLowerCase() ?? "jpg";
-  const key = `stores/${storeId}/products/${randomUUID()}.${ext}`;
+  const key = type === "logo"
+    ? `stores/${storeId}/logo.${ext}`
+    : `stores/${storeId}/products/${randomUUID()}.${ext}`;
 
   const uploadUrl = await presignUpload(key, contentType);
   const publicUrl = s3PublicUrl(key);
