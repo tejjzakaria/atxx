@@ -303,15 +303,13 @@ function AddProductDrawer({ open, onClose, onAdd, onUpdate, storeColor, storeId,
     setUploadingCount(c => c + files.length);
     await Promise.all(files.map(async file => {
       try {
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, storeId }),
-        });
-        if (!res.ok) throw new Error("Failed to get upload URL");
-        const { uploadUrl, publicUrl } = await res.json();
-        await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-        setImageFiles(prev => [...prev, publicUrl]);
+        const form = new FormData();
+        form.append("file", file);
+        form.append("storeId", storeId);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        if (!res.ok) throw new Error("Upload failed");
+        const { url } = await res.json();
+        setImageFiles(prev => [...prev, url]);
       } finally {
         setUploadingCount(c => c - 1);
       }

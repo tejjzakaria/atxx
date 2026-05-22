@@ -704,15 +704,13 @@ function ImageUploadField({ value, onChange, storeId, label, hint }: {
   async function handleUpload(file: File) {
     setUploading(true);
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, storeId }),
-      });
+      const form = new FormData();
+      form.append("file", file);
+      form.append("storeId", storeId);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
       if (!res.ok) throw new Error();
-      const { uploadUrl, publicUrl } = await res.json();
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      onChange(publicUrl);
+      const { url } = await res.json();
+      onChange(url);
     } finally {
       setUploading(false);
     }
@@ -1028,15 +1026,13 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
   async function uploadReviewPhoto(file: File, idx: number) {
     setReviewPhotoUploading(s => new Set(s).add(idx));
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, storeId: store._id }),
-      });
+      const form = new FormData();
+      form.append("file", file);
+      form.append("storeId", store._id);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
       if (!res.ok) throw new Error("Upload failed");
-      const { uploadUrl, publicUrl } = await res.json();
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      setHomeReviewItems(a => updArr(a, idx, { image: publicUrl }));
+      const { url } = await res.json();
+      setHomeReviewItems(a => updArr(a, idx, { image: url }));
     } finally {
       setReviewPhotoUploading(s => { const next = new Set(s); next.delete(idx); return next; });
     }
