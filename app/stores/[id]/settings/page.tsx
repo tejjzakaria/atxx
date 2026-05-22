@@ -236,25 +236,15 @@ function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => voi
     setUploadError("");
     setUploading(true);
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-          storeId: store._id,
-          type: "logo",
-        }),
-      });
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/stores/${store._id}/logo`, { method: "POST", body: form });
       if (!res.ok) {
         const { error } = await res.json();
         throw new Error(error ?? "Upload failed");
       }
-      const { uploadUrl, publicUrl } = await res.json();
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      setLogo(publicUrl);
-      await saveLogo({ logo: publicUrl });
+      const { url } = await res.json();
+      setLogo(url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
