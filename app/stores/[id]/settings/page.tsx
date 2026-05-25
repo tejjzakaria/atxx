@@ -225,12 +225,16 @@ const PALETTE = ["#ec4899","#3b82f6","#f59e0b","#8b5cf6","#10b981","#ef4444","#f
 
 function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
   const [color,        setColor]        = useState(store.color);
-  const [logo,         setLogo]         = useState(store.logo ?? "");
-  const [uploading,    setUploading]    = useState(false);
-  const [uploadError,  setUploadError]  = useState("");
+  const [logo,            setLogo]            = useState(store.logo    ?? "");
+  const [favicon,         setFavicon]         = useState(store.favicon ?? "");
+  const [uploading,       setUploading]       = useState(false);
+  const [uploadError,     setUploadError]     = useState("");
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const [faviconError,    setFaviconError]    = useState("");
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
-  const { save: saveColor, saving: savingColor, saved: savedColor } = useSave(store._id, onSaved);
-  const { save: saveLogo,  saving: savingLogo,  saved: savedLogo  } = useSave(store._id, onSaved);
+  const { save: saveColor,   saving: savingColor,   saved: savedColor   } = useSave(store._id, onSaved);
+  const { save: saveLogo,    saving: savingLogo,    saved: savedLogo    } = useSave(store._id, onSaved);
+  const { save: saveFavicon, saving: savingFavicon, saved: savedFavicon } = useSave(store._id, onSaved);
 
   async function handleLogoFile(file: File) {
     setUploadError("");
@@ -249,6 +253,26 @@ function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => voi
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleFaviconFile(file: File) {
+    setFaviconError("");
+    setFaviconUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/stores/${store._id}/favicon`, { method: "POST", body: form });
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error ?? "Upload failed");
+      }
+      const { url } = await res.json();
+      setFavicon(url);
+    } catch (err) {
+      setFaviconError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setFaviconUploading(false);
     }
   }
 
@@ -288,6 +312,41 @@ function AppearanceTab({ store, onSaved }: { store: StoreDoc; onSaved: () => voi
           <p className="text-xs text-gray-400">JPEG, PNG, WebP or GIF · max 10 MB</p>
         </div>
         {savedLogo && (
+          <p className="text-xs text-[#0d9488] font-semibold flex items-center gap-1 pb-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Saved
+          </p>
+        )}
+      </Section>
+
+      <Section title="Favicon" sub="Browser tab icon for your storefront">
+        <div className="py-5 space-y-4">
+          {favicon && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={favicon} alt="Favicon preview" className="w-8 h-8 object-contain rounded border border-gray-200 bg-gray-50" />
+              <button
+                type="button"
+                onClick={() => { setFavicon(""); saveFavicon({ favicon: "" }); }}
+                className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2 transition-colors">
+                Remove
+              </button>
+            </div>
+          )}
+          <label className={`inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors cursor-pointer ${faviconUploading ? "opacity-50 pointer-events-none" : ""}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {faviconUploading ? "Uploading…" : favicon ? "Replace favicon" : "Upload favicon"}
+            <input
+              type="file"
+              accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,image/webp"
+              className="sr-only"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFaviconFile(f); e.target.value = ""; }}
+            />
+          </label>
+          {faviconError && <p className="text-xs text-red-500">{faviconError}</p>}
+          <p className="text-xs text-gray-400">PNG, ICO, SVG or WebP · max 2 MB</p>
+        </div>
+        {savedFavicon && (
           <p className="text-xs text-[#0d9488] font-semibold flex items-center gap-1 pb-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
             Saved
