@@ -923,6 +923,12 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
   const [aboutHeroImage,    setAboutHeroImage]    = useState(initC?.about?.hero?.image     ?? "");
   const [aboutMissionImage, setAboutMissionImage] = useState(initC?.about?.mission?.image  ?? "");
   const [shopHeroImage,     setShopHeroImage]     = useState(initC?.shop?.hero?.image      ?? "");
+  const [shopHeroTitle,     setShopHeroTitle]     = useState(initC?.shop?.hero?.title      ?? "");
+  const [shopHeroSubtitle,  setShopHeroSubtitle]  = useState(initC?.shop?.hero?.subtitle   ?? "");
+  const [shopHeroStatsText, setShopHeroStatsText] = useState(initC?.shop?.hero?.statsText  ?? "");
+  const [shopCtaTitle,      setShopCtaTitle]      = useState(initC?.shop?.cta?.title       ?? "");
+  const [shopCtaSubtitle,   setShopCtaSubtitle]   = useState(initC?.shop?.cta?.subtitle    ?? "");
+  const [shopCtaButton,     setShopCtaButton]     = useState(initC?.shop?.cta?.button      ?? "");
 
   // About state
   const [aboutHero, setAboutHero] = useState({
@@ -1000,7 +1006,13 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
     setHomeAboutImage(c?.home?.about?.image    ?? "");
     setAboutHeroImage(c?.about?.hero?.image    ?? "");
     setAboutMissionImage(c?.about?.mission?.image ?? "");
-    setShopHeroImage(c?.shop?.hero?.image      ?? "");
+    setShopHeroImage(c?.shop?.hero?.image         ?? "");
+    setShopHeroTitle(c?.shop?.hero?.title         ?? "");
+    setShopHeroSubtitle(c?.shop?.hero?.subtitle   ?? "");
+    setShopHeroStatsText(c?.shop?.hero?.statsText ?? "");
+    setShopCtaTitle(c?.shop?.cta?.title           ?? "");
+    setShopCtaSubtitle(c?.shop?.cta?.subtitle     ?? "");
+    setShopCtaButton(c?.shop?.cta?.button         ?? "");
     setAboutHero({ eyebrow: c?.about?.hero?.eyebrow ?? "", headline: c?.about?.hero?.headline ?? "", subtitle: c?.about?.hero?.subtitle ?? "" });
     setAboutStats(c?.about?.stats ?? [{ value: "", label: "" }, { value: "", label: "" }, { value: "", label: "" }, { value: "", label: "" }]);
     setAboutMission({ eyebrow: c?.about?.mission?.eyebrow ?? "", headlineBold: c?.about?.mission?.headlineBold ?? "", headlineItalic: c?.about?.mission?.headlineItalic ?? "", body1: c?.about?.mission?.body1 ?? "", body2: c?.about?.mission?.body2 ?? "", ctaText: c?.about?.mission?.ctaText ?? "" });
@@ -1056,7 +1068,10 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
         cta: aboutCta,
       },
       contact: { instagram, tiktok },
-      shop: { hero: { image: shopHeroImage } },
+      shop: {
+        hero: { image: shopHeroImage, title: shopHeroTitle, subtitle: shopHeroSubtitle, statsText: shopHeroStatsText },
+        cta:  { title: shopCtaTitle, subtitle: shopCtaSubtitle, button: shopCtaButton },
+      },
       product: {
         howToUse: { eyebrow: howToUseEyebrow, headline: howToUseHeadline, steps: howToUseSteps },
         whyUs:    { eyebrow: whyUsEyebrow,    headline: whyUsHeadline,    items: whyUsItems    },
@@ -1527,8 +1542,29 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
 
       {subTab === "shop" && (
         <div className="space-y-4">
-          <Section title="Shop Banner" sub="Header banner image on the shop / collection page">
+          <Section title="Shop Banner" sub="Header banner on the shop / collection page">
             <ImageUploadField label="Banner Image" hint="Background image for the shop page header" value={shopHeroImage} onChange={setShopHeroImage} storeId={store._id} />
+            <Field label="Title">
+              <Input value={shopHeroTitle} onChange={setShopHeroTitle} placeholder="The Collection" />
+            </Field>
+            <Field label="Subtitle">
+              <Textarea value={shopHeroSubtitle} onChange={setShopHeroSubtitle} rows={2} placeholder="Every drop crafted to captivate." />
+            </Field>
+            <Field label="Stats Text" hint="Social proof line shown in the banner">
+              <Input value={shopHeroStatsText} onChange={setShopHeroStatsText} placeholder="4.8 · 125,000+ customers" />
+            </Field>
+          </Section>
+
+          <Section title="CTA" sub="Call-to-action banner at the bottom of the shop page">
+            <Field label="Title">
+              <Input value={shopCtaTitle} onChange={setShopCtaTitle} placeholder="Can't find your scent?" />
+            </Field>
+            <Field label="Subtitle">
+              <Textarea value={shopCtaSubtitle} onChange={setShopCtaSubtitle} rows={2} placeholder="Answer a few questions and we'll match you with your perfect fragrance." />
+            </Field>
+            <Field label="Button Label">
+              <Input value={shopCtaButton} onChange={setShopCtaButton} placeholder="Take the Quiz" />
+            </Field>
           </Section>
           <SaveButton onClick={handleSave} saving={saving} saved={saved} />
         </div>

@@ -34,7 +34,17 @@ export interface StoreContent {
   };
   contact: { instagram: string; tiktok: string };
   shop?: {
-    hero?: { image?: string };
+    hero?: {
+      image?: string;
+      title?: string;
+      subtitle?: string;
+      statsText?: string;
+    };
+    cta?: {
+      title?: string;
+      subtitle?: string;
+      button?: string;
+    };
   };
   product?: {
     howToUse?: {
