@@ -958,6 +958,10 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
   const [homeTestimonialStats, setHomeTestimonialStats] = useState(
     initC?.home?.testimonials?.stats ?? [{ percent: "", text: "" }, { percent: "", text: "" }, { percent: "", text: "" }]
   );
+  const [homeTestimonialItems, setHomeTestimonialItems] = useState<Array<{ video: string; quote: string }>>(
+    initC?.home?.testimonials?.items ?? []
+  );
+  const [testimonialVideoUploading, setTestimonialVideoUploading] = useState<Set<number>>(new Set());
   const [homeBenefits, setHomeBenefits] = useState({
     headlineBold:   initC?.home?.benefits?.headlineBold   ?? "",
     headlineItalic: initC?.home?.benefits?.headlineItalic ?? "",
@@ -1057,6 +1061,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
     setHomeAbout({ headline: c?.home?.about?.headline ?? "", body: c?.home?.about?.body ?? "", ctaText: c?.home?.about?.ctaText ?? "" });
     setHomeTestimonials({ headlineBold: c?.home?.testimonials?.headlineBold ?? "", headlineItalic: c?.home?.testimonials?.headlineItalic ?? "" });
     setHomeTestimonialStats(c?.home?.testimonials?.stats ?? [{ percent: "", text: "" }, { percent: "", text: "" }, { percent: "", text: "" }]);
+    setHomeTestimonialItems(c?.home?.testimonials?.items ?? []);
     setHomeBenefits({ headlineBold: c?.home?.benefits?.headlineBold ?? "", headlineItalic: c?.home?.benefits?.headlineItalic ?? "" });
     setHomeBenefitItems(c?.home?.benefits?.items ?? [{ title: "", description: "" }, { title: "", description: "" }, { title: "", description: "" }]);
     setHomeReviews({ headlineBold: c?.home?.reviews?.headlineBold ?? "", headlineItalic: c?.home?.reviews?.headlineItalic ?? "", subtitle: c?.home?.reviews?.subtitle ?? "", totalReviews: c?.home?.reviews?.totalReviews ?? "" });
@@ -1092,6 +1097,24 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
 
   const { save, saving, saved } = useSave(store._id, onSaved);
 
+  async function uploadTestimonialVideo(file: File, idx: number) {
+    setTestimonialVideoUploading(s => new Set(s).add(idx));
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("storeId", store._id);
+      const res = await fetch("/api/upload-video", { method: "POST", body: form });
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error ?? "Upload failed");
+      }
+      const { url } = await res.json();
+      setHomeTestimonialItems(a => updArr(a, idx, { video: url }));
+    } finally {
+      setTestimonialVideoUploading(s => { const next = new Set(s); next.delete(idx); return next; });
+    }
+  }
+
   const [reviewPhotoUploading, setReviewPhotoUploading] = useState<Set<number>>(new Set());
 
   async function uploadReviewPhoto(file: File, idx: number) {
@@ -1114,7 +1137,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
       home: {
         hero:  { ...homeHero,  image: homeHeroImage },
         about: { ...homeAbout, image: homeAboutImage },
-        testimonials: { ...homeTestimonials, stats: homeTestimonialStats },
+        testimonials: { ...homeTestimonials, stats: homeTestimonialStats, items: homeTestimonialItems },
         benefits: { ...homeBenefits, items: homeBenefitItems },
         reviews: { ...homeReviews, items: homeReviewItems },
       },
@@ -1283,6 +1306,66 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
                   </div>
                 ))}
               </div>
+            </div>
+            <div className="py-4">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                Videos <span className="font-normal text-gray-400 normal-case">(max 6)</span>
+              </p>
+              <div className="space-y-3">
+                {homeTestimonialItems.map((item, i) => (
+                  <div key={i} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold text-gray-400">Video {i + 1}</p>
+                      <button type="button"
+                        onClick={() => setHomeTestimonialItems(a => a.filter((_, j) => j !== i))}
+                        className="text-[11px] font-semibold text-red-400 hover:text-red-600 transition-colors">
+                        Remove
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Video</label>
+                        {item.video ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 truncate flex-1 font-mono">{item.video.split("/").pop()}</span>
+                            <button type="button"
+                              onClick={() => setHomeTestimonialItems(a => updArr(a, i, { video: "" }))}
+                              className="text-[11px] font-semibold text-red-400 hover:text-red-600 flex-shrink-0 transition-colors">
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <label className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-600 transition-colors cursor-pointer ${testimonialVideoUploading.has(i) ? "opacity-50 pointer-events-none" : ""}`}>
+                            {testimonialVideoUploading.has(i) ? (
+                              <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                            ) : (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            )}
+                            {testimonialVideoUploading.has(i) ? "Uploading…" : "Upload video"}
+                            <input type="file" accept="video/mp4,video/webm,video/quicktime"
+                              className="sr-only"
+                              onChange={e => { const f = e.target.files?.[0]; if (f) uploadTestimonialVideo(f, i); e.target.value = ""; }}
+                            />
+                          </label>
+                        )}
+                        <p className="text-[11px] text-gray-400 mt-1.5">MP4, WebM or MOV · max 100 MB</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Quote</label>
+                        <Input value={item.quote} onChange={v => setHomeTestimonialItems(a => updArr(a, i, { quote: v }))} placeholder="This scent changed how I walk into a room." />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {homeTestimonialItems.length < 6 && (
+                <button type="button"
+                  onClick={() => setHomeTestimonialItems(a => [...a, { video: "", quote: "" }])}
+                  className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#0d9488] hover:text-[#0d3d38] transition-colors">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add video
+                </button>
+              )}
             </div>
           </Section>
 

@@ -6,7 +6,7 @@ export interface StoreContent {
   home: {
     hero: { headline: string; subtext: string; ctaText: string; socialProof: string; image?: string };
     about: { headline: string; body: string; ctaText: string; image?: string };
-    testimonials: { headlineBold: string; headlineItalic: string; stats: Array<{ percent: string; text: string }> };
+    testimonials: { headlineBold: string; headlineItalic: string; stats: Array<{ percent: string; text: string }>; items?: Array<{ video: string; quote: string }> };
     benefits: { headlineBold: string; headlineItalic: string; items: Array<{ title: string; description: string }> };
     reviews: {
       headlineBold: string;
