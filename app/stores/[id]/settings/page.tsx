@@ -7,7 +7,7 @@ import type { StoreDoc, StoreContent } from "@/lib/db/stores";
 import { PageHeader } from "@/components/PageHeader";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
-type Tab = "general" | "appearance" | "api" | "content" | "danger";
+type Tab = "general" | "appearance" | "api" | "content" | "pixels" | "danger";
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -26,6 +26,10 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   {
     id: "content", label: "Content",
     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  },
+  {
+    id: "pixels", label: "Pixels",
+    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>,
   },
   {
     id: "danger", label: "Danger Zone",
@@ -640,6 +644,56 @@ const product = await res2.json();`}</pre>
             <ResponseBadge code="401 Unauthorized" color="red"     desc="Invalid API key" />
           </div>
         </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ─── Tab: Pixels ────────────────────────────────────────────────────── */
+function PixelsTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
+  const [meta,      setMeta]      = useState(store.pixels?.metaPixelId ?? "");
+  const [snap,      setSnap]      = useState(store.pixels?.snapPixelId ?? "");
+  const [tt,        setTt]        = useState(store.pixels?.ttPixelId   ?? "");
+  const [ga4,       setGa4]       = useState(store.pixels?.ga4Id       ?? "");
+  const [gtm,       setGtm]       = useState(store.pixels?.gtmId       ?? "");
+  const [pinterest, setPinterest] = useState(store.pixels?.pinterestId ?? "");
+  const { save, saving, saved } = useSave(store._id, onSaved);
+
+  function handleSave() {
+    save({
+      pixels: {
+        metaPixelId: meta.trim(),
+        snapPixelId: snap.trim(),
+        ttPixelId:   tt.trim(),
+        ga4Id:       ga4.trim(),
+        gtmId:       gtm.trim(),
+        pinterestId: pinterest.trim(),
+      },
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <Section title="Tracking Pixels" sub="Paste your pixel or measurement IDs — the storefront injects them server-side">
+        <Field label="Meta Pixel" hint="Facebook / Instagram ads">
+          <Input value={meta} onChange={setMeta} placeholder="1234567890" />
+        </Field>
+        <Field label="Snapchat Pixel">
+          <Input value={snap} onChange={setSnap} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </Field>
+        <Field label="TikTok Pixel">
+          <Input value={tt} onChange={setTt} placeholder="ABCDE1234" />
+        </Field>
+        <Field label="Google Analytics 4" hint="Measurement ID">
+          <Input value={ga4} onChange={setGa4} placeholder="G-XXXXXXXXXX" />
+        </Field>
+        <Field label="Google Tag Manager" hint="Container ID">
+          <Input value={gtm} onChange={setGtm} placeholder="GTM-XXXXXXX" />
+        </Field>
+        <Field label="Pinterest Tag">
+          <Input value={pinterest} onChange={setPinterest} placeholder="1234567890123" />
+        </Field>
+        <SaveButton onClick={handleSave} saving={saving} saved={saved} />
       </Section>
     </div>
   );
@@ -1848,6 +1902,7 @@ export default function SettingsPage() {
             {tab === "appearance" && <AppearanceTab store={store} onSaved={refresh} />}
             {tab === "api"        && <ApiTab        store={store} />}
             {tab === "content"    && <ContentTab    store={store} onSaved={refresh} />}
+            {tab === "pixels"     && <PixelsTab     store={store} onSaved={refresh} />}
             {tab === "danger"     && <DangerTab     store={store} />}
           </div>
         </div>

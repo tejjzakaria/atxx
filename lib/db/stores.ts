@@ -78,7 +78,14 @@ export interface StoreDoc {
   phone?: string;
   country?: string;
   currency?: string;
-  pixels?: Record<string, { id: string; enabled: boolean }>;
+  pixels?: {
+    metaPixelId?: string;
+    snapPixelId?: string;
+    ttPixelId?:   string;
+    ga4Id?:       string;
+    gtmId?:       string;
+    pinterestId?: string;
+  };
   notifications?: {
     orders: boolean;
     lowStock: boolean;
