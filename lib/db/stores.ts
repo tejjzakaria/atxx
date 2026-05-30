@@ -99,6 +99,7 @@ export interface StoreDoc {
   logo?: string;
   favicon?: string;
   content?: Record<string, StoreContent>;
+  activeLocales?: string[];
   sections?: SectionInstance[];
   pages?: Record<string, SectionInstance[]>;
 }

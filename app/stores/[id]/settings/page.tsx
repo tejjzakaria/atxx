@@ -884,11 +884,11 @@ function hasAnyContent(c: StoreContent | undefined): boolean {
   return scan(c);
 }
 
-function validateLocales(all: Record<string, StoreContent>): ContentIssue[] {
+function validateLocales(all: Record<string, StoreContent>, activeLocales: Locale[]): ContentIssue[] {
   const issues: ContentIssue[] = [];
 
-  // Only cross-validate locales that have at least one field filled in
-  const active = LOCALES.filter(l => hasAnyContent(all[l.id]));
+  // Only cross-validate locales that are enabled and have at least one field filled in
+  const active = LOCALES.filter(l => activeLocales.includes(l.id) && hasAnyContent(all[l.id]));
   if (active.length <= 1) return [];
 
   function check(section: string, fields: Array<[string, (c: StoreContent | undefined) => string | undefined]>) {
@@ -986,9 +986,16 @@ function validateLocales(all: Record<string, StoreContent>): ContentIssue[] {
 }
 
 function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
+  const [activeLocales, setActiveLocales] = useState<Locale[]>(
+    (store.activeLocales as Locale[] | undefined) ?? ["en", "fr", "ar"]
+  );
   const [locale, setLocale] = useState<Locale>("en");
   const [subTab, setSubTab] = useState<ContentSubTab>("home");
   const [validationIssues, setValidationIssues] = useState<ContentIssue[]>([]);
+
+  useEffect(() => {
+    if (!activeLocales.includes(locale)) setLocale(activeLocales[0]);
+  }, [activeLocales]);
 
   // Seed initial state from the English locale so fields are pre-filled on mount
   const initC = store.content?.["en"];
@@ -1214,10 +1221,10 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
       },
     };
     const allContent = { ...(store.content ?? {}), [locale]: localeContent };
-    const issues = validateLocales(allContent);
+    const issues = validateLocales(allContent, activeLocales);
     if (issues.length > 0) { setValidationIssues(issues); return; }
     setValidationIssues([]);
-    save({ content: allContent });
+    save({ content: allContent, activeLocales });
   }
 
   function updArr<T>(arr: T[], i: number, patch: Partial<T>): T[] {
@@ -1240,14 +1247,50 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
 
   return (
     <div className="space-y-4">
-      {/* Language switcher */}
+      {/* Website Language mode selector */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <p className="text-sm font-semibold text-gray-700">Website Language</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveLocales(["en", "fr", "ar"])}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              activeLocales.length === 3
+                ? "bg-[#0d3d38] text-white border-[#0d3d38]"
+                : "border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"
+            }`}>
+            Multilingual
+          </button>
+          {LOCALES.map(loc => (
+            <button
+              key={loc.id}
+              type="button"
+              onClick={() => setActiveLocales([loc.id])}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                activeLocales.length === 1 && activeLocales[0] === loc.id
+                  ? "bg-[#0d3d38] text-white border-[#0d3d38]"
+                  : "border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"
+              }`}>
+              {loc.label}
+            </button>
+          ))}
+        </div>
+        {activeLocales.length === 1 && (
+          <p className="text-xs text-gray-400 mt-2">Your website will only display content in {LOCALES.find(l => l.id === activeLocales[0])?.label}.</p>
+        )}
+      </div>
+
+      {/* Language switcher — only shown when multiple languages are active */}
+      {activeLocales.length > 1 && (
       <div className="flex items-center gap-3 px-1">
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Language</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Editing</span>
         </div>
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-          {LOCALES.map(loc => (
+          {LOCALES.filter(loc => activeLocales.includes(loc.id)).map(loc => (
             <button key={loc.id} onClick={() => setLocale(loc.id)} type="button" title={loc.label}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all duration-150 ${
                 locale === loc.id ? "bg-[#0d3d38] text-white shadow-sm" : "text-gray-400 hover:bg-gray-200 hover:text-gray-600"
@@ -1258,6 +1301,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
         </div>
         <span className="text-xs text-gray-400 font-medium">{LOCALES.find(l => l.id === locale)?.label}</span>
       </div>
+      )}
 
       {/* Sub-tab nav */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-2 flex gap-1">
