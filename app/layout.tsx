@@ -45,8 +45,11 @@ const dmSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ATXX — Sign In",
-  description: "Sign in to ATXX to manage your e-commerce stores.",
+  title: {
+    template: "%s | ATXX",
+    default: "ATXX",
+  },
+  description: "Manage your e-commerce stores from one place.",
 };
 
 export default function RootLayout({

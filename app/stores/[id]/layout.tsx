@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { getStoreById, getStoresByOwner } from "@/lib/db/stores";
 import StoreSidebar from "@/components/StoreSidebar";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user?.id) return {};
+  const store = await getStoreById(id, session.user.id);
+  if (!store) return {};
+  return {
+    title: {
+      template: `%s — ${store.name}`,
+      default: store.name,
+    },
+  };
+}
 
 export default async function StoreLayout({
   children,

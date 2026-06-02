@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import SignInForm from "@/components/SignInForm";
 import MarketingPanel from "@/components/MarketingPanel";
+
+export const metadata: Metadata = {
+  title: "Sign In",
+  description: "Sign in to your ATXX account to manage your stores.",
+};
 
 export default function SignInPage() {
   return (
