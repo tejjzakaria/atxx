@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/hooks/useStore";
 import type { StoreDoc, StoreContent } from "@/lib/db/stores";
@@ -143,6 +143,7 @@ function useSave(storeId: string, onSaved?: () => void) {
 /* ─── Tab: General ───────────────────────────────────────────────────── */
 function GeneralTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
   const [name,     setName]     = useState(store.name);
+  const [url,      setUrl]      = useState(store.url      ?? "");
   const [desc,     setDesc]     = useState(store.desc     ?? "");
   const [email,    setEmail]    = useState(store.email    ?? "");
   const [phone,    setPhone]    = useState(store.phone    ?? "");
@@ -161,10 +162,13 @@ function GeneralTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
         <Field label="Store Name" hint="Displayed across your dashboard and storefront.">
           <Input value={name} onChange={setName} placeholder="Store name" />
         </Field>
+        <Field label="Storefront URL" hint="The public URL of your customer-facing website.">
+          <Input value={url} onChange={setUrl} placeholder="https://mystore.com" />
+        </Field>
         <Field label="Description" hint="A short summary shown to customers.">
           <Textarea value={desc} onChange={setDesc} />
         </Field>
-        <SaveButton onClick={() => saveInfo({ name, desc })} saving={savingInfo} saved={savedInfo} />
+        <SaveButton onClick={() => saveInfo({ name, url, desc })} saving={savingInfo} saved={savedInfo} />
       </Section>
 
       <Section title="Contact Details" sub="How customers and your team can reach you">
@@ -1245,13 +1249,48 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
     { value: "3yr",   label: "Of Craftsmanship" },
   ];
 
-  return (
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeReady, setIframeReady] = useState(false);
+
+  useEffect(() => {
+    if (!previewOpen || !iframeReady || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      {
+        type: "PREVIEW_UPDATE",
+        locale,
+        home: {
+          hero:         { ...homeHero,         image: homeHeroImage },
+          about:        { ...homeAbout,        image: homeAboutImage },
+          testimonials: { ...homeTestimonials, stats: homeTestimonialStats, items: homeTestimonialItems },
+          benefits:     { ...homeBenefits,     items: homeBenefitItems },
+          reviews:      { ...homeReviews,      items: homeReviewItems },
+        },
+      },
+      "*"
+    );
+  }, [previewOpen, iframeReady, locale, homeHero, homeHeroImage, homeAbout, homeAboutImage, homeTestimonials, homeTestimonialStats, homeTestimonialItems, homeBenefits, homeBenefitItems, homeReviews, homeReviewItems]);
+
+  const form = (
     <div className="space-y-4">
       {/* Website Language mode selector */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          <p className="text-sm font-semibold text-gray-700">Website Language</p>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <p className="text-sm font-semibold text-gray-700">Website Language</p>
+          </div>
+          {!previewOpen && (
+            <button
+              type="button"
+              onClick={() => { setIframeReady(false); setPreviewOpen(true); }}
+              disabled={!store.url}
+              title={!store.url ? "Add a storefront URL in General settings to enable preview" : "Open live preview"}
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all border border-gray-200 text-gray-400 hover:border-[#0d9488] hover:text-[#0d9488] disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Preview
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -1900,6 +1939,60 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
       )}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {!previewOpen && form}
+
+      {previewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ backgroundColor: "#f0f5f4", backgroundImage: "radial-gradient(#c8deda 1px, transparent 1px)", backgroundSize: "24px 24px" }}>
+          {/* Header bar */}
+          <div className="h-12 px-5 flex items-center justify-between bg-white border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-sm font-semibold text-gray-700">Live Preview</span>
+              <span className="text-xs text-gray-400">· Home Page</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setPreviewOpen(false); setIframeReady(false); }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-all bg-white">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Exit Preview
+            </button>
+          </div>
+
+          {/* Split layout */}
+          <div className="flex-1 flex min-h-0">
+            {/* Left: scrollable settings panel */}
+            <div className="w-[460px] flex-shrink-0 overflow-y-auto border-r border-gray-200/80 p-5">
+              {form}
+            </div>
+
+            {/* Right: iframe */}
+            <div className="flex-1 bg-white relative">
+              {!iframeReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                    <p className="text-sm text-gray-400 font-medium">Loading preview…</p>
+                  </div>
+                </div>
+              )}
+              <iframe
+                ref={iframeRef}
+                src={`${store.url}?preview=1`}
+                className="w-full h-full border-0"
+                onLoad={() => setIframeReady(true)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
