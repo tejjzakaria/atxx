@@ -1121,6 +1121,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
 
   // Reload all form fields when the active locale changes
   useEffect(() => {
+    skipDirtyRef.current = true;
     const c = store.content?.[locale];
     setHomeHero({ headline: c?.home?.hero?.headline ?? "", subtext: c?.home?.hero?.subtext ?? "", ctaText: c?.home?.hero?.ctaText ?? "", socialProof: c?.home?.hero?.socialProof ?? "" });
     setHomeAbout({ headline: c?.home?.about?.headline ?? "", body: c?.home?.about?.body ?? "", ctaText: c?.home?.about?.ctaText ?? "" });
@@ -1252,6 +1253,20 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
   const [previewOpen, setPreviewOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
+  const [sendCount, setSendCount] = useState(0);
+  const skipDirtyRef = useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+
+  // Re-send content whenever the storefront signals its listener is ready
+  useEffect(() => {
+    if (!previewOpen) return;
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "PREVIEW_READY") setSendCount(c => c + 1);
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [previewOpen]);
 
   const PREVIEW_PATHS: Record<ContentSubTab, string> = {
     home:    "",
@@ -1305,7 +1320,22 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
     instagram, tiktok,
     shopHeroImage, shopHeroTitle, shopHeroSubtitle, shopHeroStatsText, shopCtaTitle, shopCtaSubtitle, shopCtaButton,
     howToUseEyebrow, howToUseHeadline, howToUseSteps, whyUsEyebrow, whyUsHeadline, whyUsItems,
+    sendCount,
   ]);
+
+  useEffect(() => {
+    if (skipDirtyRef.current) { skipDirtyRef.current = false; return; }
+    setIsDirty(true);
+  }, [homeHero, homeHeroImage, homeAbout, homeAboutImage, homeTestimonials, homeTestimonialStats, homeTestimonialItems, homeBenefits, homeBenefitItems, homeReviews, homeReviewItems, aboutHero, aboutHeroImage, aboutStats, aboutMission, aboutMissionImage, aboutValues, aboutValueItems, aboutTimeline, aboutTimelineItems, aboutCta, instagram, tiktok, shopHeroImage, shopHeroTitle, shopHeroSubtitle, shopHeroStatsText, shopCtaTitle, shopCtaSubtitle, shopCtaButton, howToUseEyebrow, howToUseHeadline, howToUseSteps, whyUsEyebrow, whyUsHeadline, whyUsItems]);
+
+  useEffect(() => {
+    if (saved) setIsDirty(false);
+  }, [saved]);
+
+  function handleExitPreview() {
+    if (isDirty) { setShowExitDialog(true); }
+    else { setPreviewOpen(false); setIframeReady(false); }
+  }
 
   const form = (
     <div className="space-y-4">
@@ -1994,18 +2024,24 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
             </div>
             <button
               type="button"
-              onClick={() => { setPreviewOpen(false); setIframeReady(false); }}
+              onClick={handleExitPreview}
               className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-all bg-white">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />}
               Exit Preview
             </button>
           </div>
 
           {/* Split layout */}
           <div className="flex-1 flex min-h-0">
-            {/* Left: scrollable settings panel */}
-            <div className="w-[460px] flex-shrink-0 overflow-y-auto border-r border-gray-200/80 p-5">
-              {form}
+            {/* Left: scrollable settings panel + sticky save footer */}
+            <div className="w-[460px] flex-shrink-0 flex flex-col border-r border-gray-200/80">
+              <div className="flex-1 overflow-y-auto p-5">
+                {form}
+              </div>
+              <div className="flex-shrink-0 px-5 py-3 border-t border-gray-200 bg-white">
+                <SaveButton onClick={handleSave} saving={saving} saved={saved} />
+              </div>
             </div>
 
             {/* Right: iframe */}
@@ -2026,6 +2062,38 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
               />
             </div>
           </div>
+
+          {/* Unsaved changes confirmation dialog */}
+          {showExitDialog && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+              <div className="bg-white rounded-2xl shadow-2xl w-[320px] p-6">
+                <div className="flex flex-col items-center text-center gap-2 mb-5">
+                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center mb-1">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </div>
+                  <p className="text-sm font-bold text-gray-800">Unsaved changes</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">You have unsaved changes. Save them before leaving the preview?</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button type="button"
+                    onClick={() => { handleSave(); setShowExitDialog(false); setPreviewOpen(false); setIframeReady(false); }}
+                    className="w-full h-9 rounded-xl bg-[#0d3d38] text-white text-xs font-semibold hover:bg-[#0a2e2a] transition-colors">
+                    Save &amp; Exit Preview
+                  </button>
+                  <button type="button"
+                    onClick={() => { setShowExitDialog(false); setPreviewOpen(false); setIframeReady(false); setIsDirty(false); }}
+                    className="w-full h-9 rounded-xl border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors">
+                    Discard &amp; Exit
+                  </button>
+                  <button type="button"
+                    onClick={() => setShowExitDialog(false)}
+                    className="w-full h-9 rounded-xl text-gray-400 text-xs font-semibold hover:text-gray-600 transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
