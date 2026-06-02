@@ -1253,6 +1253,18 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
 
+  const PREVIEW_PATHS: Record<ContentSubTab, string> = {
+    home:    "",
+    about:   "/about",
+    contact: "/contact",
+    shop:    "/shop",
+    product: "/shop",
+  };
+
+  useEffect(() => {
+    if (previewOpen) setIframeReady(false);
+  }, [subTab]);
+
   useEffect(() => {
     if (!previewOpen || !iframeReady || !iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
@@ -1266,10 +1278,34 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
           benefits:     { ...homeBenefits,     items: homeBenefitItems },
           reviews:      { ...homeReviews,      items: homeReviewItems },
         },
+        about: {
+          hero:     { ...aboutHero,     image: aboutHeroImage },
+          stats:    aboutStats,
+          mission:  { ...aboutMission,  image: aboutMissionImage },
+          values:   { ...aboutValues,   items: aboutValueItems },
+          timeline: { ...aboutTimeline, items: aboutTimelineItems },
+          cta:      aboutCta,
+        },
+        contact: { instagram, tiktok },
+        shop: {
+          hero: { image: shopHeroImage, title: shopHeroTitle, subtitle: shopHeroSubtitle, statsText: shopHeroStatsText },
+          cta:  { title: shopCtaTitle, subtitle: shopCtaSubtitle, button: shopCtaButton },
+        },
+        product: {
+          howToUse: { eyebrow: howToUseEyebrow, headline: howToUseHeadline, steps: howToUseSteps },
+          whyUs:    { eyebrow: whyUsEyebrow,    headline: whyUsHeadline,    items: whyUsItems },
+        },
       },
       "*"
     );
-  }, [previewOpen, iframeReady, locale, homeHero, homeHeroImage, homeAbout, homeAboutImage, homeTestimonials, homeTestimonialStats, homeTestimonialItems, homeBenefits, homeBenefitItems, homeReviews, homeReviewItems]);
+  }, [
+    previewOpen, iframeReady, locale,
+    homeHero, homeHeroImage, homeAbout, homeAboutImage, homeTestimonials, homeTestimonialStats, homeTestimonialItems, homeBenefits, homeBenefitItems, homeReviews, homeReviewItems,
+    aboutHero, aboutHeroImage, aboutStats, aboutMission, aboutMissionImage, aboutValues, aboutValueItems, aboutTimeline, aboutTimelineItems, aboutCta,
+    instagram, tiktok,
+    shopHeroImage, shopHeroTitle, shopHeroSubtitle, shopHeroStatsText, shopCtaTitle, shopCtaSubtitle, shopCtaButton,
+    howToUseEyebrow, howToUseHeadline, howToUseSteps, whyUsEyebrow, whyUsHeadline, whyUsItems,
+  ]);
 
   const form = (
     <div className="space-y-4">
@@ -1954,7 +1990,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-sm font-semibold text-gray-700">Live Preview</span>
-              <span className="text-xs text-gray-400">· Home Page</span>
+              <span className="text-xs text-gray-400">· {subTab.charAt(0).toUpperCase() + subTab.slice(1)} Page</span>
             </div>
             <button
               type="button"
@@ -1984,7 +2020,7 @@ function ContentTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }
               )}
               <iframe
                 ref={iframeRef}
-                src={`${store.url}?preview=1`}
+                src={`${store.url}${PREVIEW_PATHS[subTab]}?preview=1`}
                 className="w-full h-full border-0"
                 onLoad={() => setIframeReady(true)}
               />
