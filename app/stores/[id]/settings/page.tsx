@@ -870,18 +870,18 @@ function DomainsTab({ store }: { store: StoreDoc }) {
           )}
 
           <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
-            <p className="text-xs font-semibold text-gray-700">DNS setup</p>
+            <p className="text-xs font-semibold text-gray-700">DNS setup — use nameservers</p>
             <p className="text-xs text-gray-500 leading-relaxed">
-              For a root domain (<code className="bg-gray-100 px-1 rounded font-mono">mystore.com</code>), add an{" "}
-              <code className="bg-gray-100 px-1 rounded font-mono">A</code> record pointing to{" "}
-              <code className="bg-gray-100 px-1 rounded font-mono">76.76.21.21</code>.
+              At your domain registrar (GoDaddy, Namecheap, etc.), change this domain&apos;s nameservers to:
             </p>
+            <div className="flex flex-col gap-1 py-1">
+              <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs w-fit">ns1.vercel-dns.com</code>
+              <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs w-fit">ns2.vercel-dns.com</code>
+            </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              For a subdomain (<code className="bg-gray-100 px-1 rounded font-mono">shop.mystore.com</code>), add a{" "}
-              <code className="bg-gray-100 px-1 rounded font-mono">CNAME</code> record pointing to{" "}
-              <code className="bg-gray-100 px-1 rounded font-mono">cname.vercel-dns.com</code>.
+              This hands DNS management for the whole domain to Vercel — it then configures every record automatically, including subdomains, so there&apos;s nothing else to add manually.
             </p>
-            <p className="text-xs text-gray-400">DNS changes can take anywhere from a few minutes to a few hours to propagate.</p>
+            <p className="text-xs text-gray-400">Nameserver changes can take anywhere from a few minutes to 48 hours to propagate.</p>
           </div>
         </div>
       </Section>
