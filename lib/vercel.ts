@@ -53,7 +53,14 @@ export async function createStorefrontDeployment(opts: {
         target: ["production", "preview", "development"],
       })),
     }),
-  }) as { id: string; name: string };
+  }) as { id: string; name: string; link?: { repoId?: number } };
+
+  // /v13/deployments' gitSource needs the numeric GitHub repo id, not the "owner/repo"
+  // string — Vercel resolves and returns it on `link.repoId` once the repo is linked above.
+  const repoId = project.link?.repoId;
+  if (!repoId) {
+    throw new Error("Vercel didn't return a linked repository id — check that its GitHub integration has access to " + repo);
+  }
 
   await vercelFetch(`/v13/deployments${teamQuery()}`, {
     method: "POST",
@@ -61,7 +68,7 @@ export async function createStorefrontDeployment(opts: {
       name: project.name,
       project: project.id,
       target: "production",
-      gitSource: { type: "github", repo, ref: "main" },
+      gitSource: { type: "github", repoId, ref: "main" },
     }),
   });
 
