@@ -140,3 +140,44 @@ export async function getLatestDeploymentStatus(projectId: string): Promise<Depl
 
   return { status: stateMap[latest.readyState] ?? "pending" };
 }
+
+export type ProjectDomain = { name: string; verified: boolean; misconfigured: boolean };
+
+// Always fetched live from Vercel rather than cached locally — domain state (DNS propagation,
+// verification) changes outside crm-dash entirely, so a local cache would just go stale.
+export async function listProjectDomains(projectId: string): Promise<ProjectDomain[]> {
+  const data = await vercelFetch(`/v9/projects/${projectId}/domains${teamQuery()}`) as {
+    domains?: Array<{ name: string; verified: boolean }>;
+  };
+
+  const domains = data.domains ?? [];
+  return Promise.all(domains.map(async d => ({
+    name: d.name,
+    verified: d.verified,
+    misconfigured: await isDomainMisconfigured(d.name),
+  })));
+}
+
+async function isDomainMisconfigured(domain: string): Promise<boolean> {
+  try {
+    const config = await vercelFetch(`/v6/domains/${encodeURIComponent(domain)}/config${teamQuery()}`) as { misconfigured?: boolean };
+    return !!config.misconfigured;
+  } catch {
+    // If we can't check, don't block the UI on it — verified/unverified from the domains
+    // list is still shown regardless.
+    return false;
+  }
+}
+
+// Attaches a domain to the project. Vercel accepts the request even if DNS isn't pointed at
+// it yet — verified/misconfigured only become accurate once the owner updates their DNS.
+export async function addDomainToProject(projectId: string, domain: string): Promise<void> {
+  await vercelFetch(`/v10/projects/${projectId}/domains${teamQuery()}`, {
+    method: "POST",
+    body: JSON.stringify({ name: domain }),
+  });
+}
+
+export async function removeDomainFromProject(projectId: string, domain: string): Promise<void> {
+  await vercelFetch(`/v9/projects/${projectId}/domains/${encodeURIComponent(domain)}${teamQuery()}`, { method: "DELETE" });
+}

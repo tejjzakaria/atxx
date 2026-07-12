@@ -7,7 +7,7 @@ import type { StoreDoc, StoreContent } from "@/lib/db/stores";
 import { PageHeader } from "@/components/PageHeader";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
-type Tab = "general" | "appearance" | "api" | "deploy" | "content" | "pixels" | "danger";
+type Tab = "general" | "appearance" | "api" | "deploy" | "domains" | "content" | "pixels" | "danger";
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -26,6 +26,10 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   {
     id: "deploy", label: "Deploy",
     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 19h20L12 2z"/></svg>,
+  },
+  {
+    id: "domains", label: "Domains",
+    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
   },
   {
     id: "content", label: "Content",
@@ -746,8 +750,139 @@ function DeployTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void })
             Requires <code className="bg-gray-100 px-1 rounded font-mono">VERCEL_API_TOKEN</code> and{" "}
             <code className="bg-gray-100 px-1 rounded font-mono">STOREFRONT_GIT_REPO</code> configured on the CRM.
             The new project deploys from that repo&apos;s <code className="bg-gray-100 px-1 rounded font-mono">main</code> branch —
-            attach a custom domain from the Vercel dashboard afterward.
+            attach a custom domain from the Domains tab once it&apos;s live.
           </p>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ─── Tab: Domains ───────────────────────────────────────────────────── */
+type DomainInfo = { name: string; verified: boolean; misconfigured: boolean };
+
+function DomainsTab({ store }: { store: StoreDoc }) {
+  const [domains, setDomains] = useState<DomainInfo[] | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [newDomain, setNewDomain] = useState("");
+  const [adding,    setAdding]    = useState(false);
+  const [removing,  setRemoving]  = useState<string | null>(null);
+  const [error,     setError]     = useState("");
+
+  const hasProject = !!store.deploy?.vercelProjectId;
+
+  async function fetchDomains() {
+    setLoading(true);
+    const res = await fetch(`/api/stores/${store._id}/domains`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) setDomains(data.domains ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    if (hasProject) fetchDomains();
+    else setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store._id]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newDomain.trim()) return;
+    setAdding(true);
+    setError("");
+    const res = await fetch(`/api/stores/${store._id}/domains`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain: newDomain.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setAdding(false);
+    if (!res.ok) { setError(data.error ?? "Failed to add domain"); return; }
+    setNewDomain("");
+    fetchDomains();
+  }
+
+  async function handleRemove(domain: string) {
+    setRemoving(domain);
+    await fetch(`/api/stores/${store._id}/domains?domain=${encodeURIComponent(domain)}`, { method: "DELETE" });
+    setRemoving(null);
+    fetchDomains();
+  }
+
+  if (!hasProject) {
+    return (
+      <Section title="Custom Domains" sub="Point your own domain at this store's storefront">
+        <div className="py-8 text-center">
+          <p className="text-sm text-gray-500">Deploy this store&apos;s storefront first — then come back here to attach a domain.</p>
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Section title="Custom Domains" sub="Point your own domain at this store's storefront">
+        <div className="py-4 space-y-4">
+          <form onSubmit={handleAdd} className="flex gap-2">
+            <input
+              value={newDomain} onChange={e => setNewDomain(e.target.value)}
+              placeholder="mystore.com"
+              className="flex-1 h-10 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0d9488] focus:bg-[#f0faf9] focus:ring-2 focus:ring-[#0d9488]/20 transition-all"
+            />
+            <button type="submit" disabled={adding}
+              className="h-10 px-5 rounded-xl bg-[#0d3d38] hover:bg-[#0f4a43] disabled:opacity-50 text-white text-sm font-semibold transition-colors whitespace-nowrap">
+              {adding ? "Adding…" : "Add Domain"}
+            </button>
+          </form>
+
+          {error && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-xs text-red-700">{error}</p>
+            </div>
+          )}
+
+          {loading ? (
+            <p className="text-xs text-gray-400 py-2">Loading domains…</p>
+          ) : domains && domains.length > 0 ? (
+            <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+              {domains.map(d => (
+                <div key={d.name} className="flex items-center justify-between px-4 py-3 bg-white">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-900">{d.name}</span>
+                    {d.verified && !d.misconfigured ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">Verified</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">Awaiting DNS</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemove(d.name)}
+                    disabled={removing === d.name}
+                    className="text-xs font-semibold text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {removing === d.name ? "Removing…" : "Remove"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 py-2">No custom domains yet — this store is only reachable at its {store.deploy?.url?.replace(/^https?:\/\//, "")} address.</p>
+          )}
+
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-gray-700">DNS setup</p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              For a root domain (<code className="bg-gray-100 px-1 rounded font-mono">mystore.com</code>), add an{" "}
+              <code className="bg-gray-100 px-1 rounded font-mono">A</code> record pointing to{" "}
+              <code className="bg-gray-100 px-1 rounded font-mono">76.76.21.21</code>.
+            </p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              For a subdomain (<code className="bg-gray-100 px-1 rounded font-mono">shop.mystore.com</code>), add a{" "}
+              <code className="bg-gray-100 px-1 rounded font-mono">CNAME</code> record pointing to{" "}
+              <code className="bg-gray-100 px-1 rounded font-mono">cname.vercel-dns.com</code>.
+            </p>
+            <p className="text-xs text-gray-400">DNS changes can take anywhere from a few minutes to a few hours to propagate.</p>
+          </div>
         </div>
       </Section>
     </div>
@@ -2258,6 +2393,7 @@ export default function SettingsPage() {
             {tab === "appearance" && <AppearanceTab store={store} onSaved={refresh} />}
             {tab === "api"        && <ApiTab        store={store} />}
             {tab === "deploy"     && <DeployTab     store={store} onSaved={refresh} />}
+            {tab === "domains"    && <DomainsTab    store={store} />}
             {tab === "content"    && <ContentTab    store={store} onSaved={refresh} />}
             {tab === "pixels"     && <PixelsTab     store={store} onSaved={refresh} />}
             {tab === "danger"     && <DangerTab     store={store} />}
