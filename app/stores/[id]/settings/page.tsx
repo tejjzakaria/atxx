@@ -686,10 +686,15 @@ function DeployTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void })
       const res = await fetch(`/api/stores/${store._id}/deploy`);
       if (!res.ok) return;
       const d = await res.json();
-      if (d.deploy) setDeploy(d.deploy);
+      if (d.deploy) {
+        setDeploy(d.deploy);
+        // A deploy going live can also fill in General > Storefront URL server-side —
+        // refresh the parent's store so that tab picks it up next time it's opened.
+        if (d.deploy.status === "ready") onSaved();
+      }
     }, 4000);
     return () => clearInterval(interval);
-  }, [deploy?.status, store._id]);
+  }, [deploy?.status, store._id, onSaved]);
 
   async function handleDeploy() {
     setDeploying(true);

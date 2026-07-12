@@ -107,7 +107,14 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       status: status.status,
     };
 
-    await db.collection("Store").updateOne({ _id: oid }, { $set: { deploy, updatedAt: new Date() } });
+    const update: Record<string, unknown> = { deploy, updatedAt: new Date() };
+    // Fill in the General tab's Storefront URL once a deploy first goes live — but only if it's
+    // still blank, so we never clobber a custom domain the owner has since pointed it at.
+    if (status.status === "ready" && !store.url && deploy.url) {
+      update.url = deploy.url;
+    }
+
+    await db.collection("Store").updateOne({ _id: oid }, { $set: update });
 
     return NextResponse.json({ deploy });
   } catch (err) {
