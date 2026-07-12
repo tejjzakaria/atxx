@@ -107,6 +107,8 @@ export interface StoreDoc {
   pages?: Record<string, SectionInstance[]>;
   deploy?: {
     vercelProjectId?: string;
+    projectName?:     string;
+    repoId?:          number;
     url?:             string;
     status?:          "pending" | "ready" | "error";
     error?:           string;

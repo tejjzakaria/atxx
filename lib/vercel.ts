@@ -30,11 +30,11 @@ async function vercelFetch(path: string, init?: RequestInit): Promise<unknown> {
 
 export type VercelEnvVar = { key: string; value: string; sensitive?: boolean };
 
-export type CreatedProject = { projectId: string; name: string; url: string };
+export type CreatedProject = { projectId: string; name: string; url: string; repoId: number };
 
 // Creates a new Vercel project linked to STOREFRONT_GIT_REPO with the given env vars
-// pre-populated, then triggers an initial production deployment from that repo's default branch.
-export async function createStorefrontDeployment(opts: {
+// pre-populated. Does not deploy — call triggerDeployment() with the returned repoId next.
+export async function createStorefrontProject(opts: {
   projectName: string;
   envVars: VercelEnvVar[];
 }): Promise<CreatedProject> {
@@ -62,20 +62,48 @@ export async function createStorefrontDeployment(opts: {
     throw new Error("Vercel didn't return a linked repository id — check that its GitHub integration has access to " + repo);
   }
 
+  return { projectId: project.id, name: project.name, url: `https://${project.name}.vercel.app`, repoId };
+}
+
+// Overwrites (or creates) each of the given env vars on an existing project — used when
+// redeploying, in case values like CRM_BASE_URL changed since the project was first created.
+export async function upsertProjectEnvVars(projectId: string, envVars: VercelEnvVar[]): Promise<void> {
+  const existing = await vercelFetch(`/v10/projects/${projectId}/env${teamQuery()}`) as {
+    envs?: Array<{ id: string; key: string }>;
+  };
+
+  for (const v of envVars) {
+    const match = existing.envs?.find(e => e.key === v.key);
+    const body = JSON.stringify({
+      key: v.key,
+      value: v.value,
+      type: v.sensitive ? "encrypted" : "plain",
+      target: ["production", "preview", "development"],
+    });
+
+    if (match) {
+      await vercelFetch(`/v9/projects/${projectId}/env/${match.id}${teamQuery()}`, { method: "PATCH", body });
+    } else {
+      await vercelFetch(`/v10/projects/${projectId}/env${teamQuery()}`, { method: "POST", body });
+    }
+  }
+}
+
+// Triggers a production deployment from the storefront repo's default branch, against an
+// already-created (or already-linked) project.
+export async function triggerDeployment(opts: { projectId: string; projectName: string; repoId: number }): Promise<void> {
   await vercelFetch(`/v13/deployments${teamQuery()}`, {
     method: "POST",
     body: JSON.stringify({
-      name: project.name,
-      project: project.id,
+      name: opts.projectName,
+      project: opts.projectId,
       target: "production",
-      gitSource: { type: "github", repoId, ref: "main" },
+      gitSource: { type: "github", repoId: opts.repoId, ref: "main" },
       // Required on a project's very first deployment — Vercel has no prior build to infer
       // framework/build settings from yet. The storefront is always Next.js, so declare it.
       projectSettings: { framework: "nextjs" },
     }),
   });
-
-  return { projectId: project.id, name: project.name, url: `https://${project.name}.vercel.app` };
 }
 
 export type DeploymentStatus = { status: "pending" | "ready" | "error" };

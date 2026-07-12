@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { getStoreById } from "@/lib/db/stores";
-import { createStorefrontDeployment, getLatestDeploymentStatus } from "@/lib/vercel";
+import { createStorefrontProject, upsertProjectEnvVars, triggerDeployment, getLatestDeploymentStatus } from "@/lib/vercel";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -16,8 +16,8 @@ function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "store";
 }
 
-/* ── POST /api/stores/[id]/deploy — create a Vercel project + trigger deploy ── */
-export async function POST(_req: NextRequest, { params }: Ctx) {
+/* ── POST /api/stores/[id]/deploy — create (or redeploy) the storefront ──── */
+export async function POST(req: NextRequest, { params }: Ctx) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -25,10 +25,9 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   const store = await getStoreById(id, session.user.id);
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const crmBaseUrl = process.env.AUTH_URL;
-  if (!crmBaseUrl) {
-    return NextResponse.json({ error: "AUTH_URL is not configured on the CRM — cannot tell the storefront where to fetch content from" }, { status: 500 });
-  }
+  // Derived from the request that hit crm-dash itself, so it's always correct regardless of
+  // what (if anything) AUTH_URL is set to — no separate "where am I publicly reachable" config to drift.
+  const crmBaseUrl = req.nextUrl.origin;
 
   const db  = getDb();
   const oid = new ObjectId(id);
@@ -39,39 +38,44 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     await db.collection("Store").updateOne({ _id: oid }, { $set: { apiKey } });
   }
 
-  const projectName = `venom-${slugify(store.name)}-${id.slice(-6)}`;
+  const envVars = [
+    { key: "STORE_ID",     value: id },
+    { key: "CRM_API_KEY",  value: apiKey, sensitive: true },
+    { key: "CRM_BASE_URL", value: crmBaseUrl },
+  ];
 
   try {
-    const deployment = await createStorefrontDeployment({
-      projectName,
-      envVars: [
-        { key: "STORE_ID",     value: id },
-        { key: "CRM_API_KEY",  value: apiKey, sensitive: true },
-        { key: "CRM_BASE_URL", value: crmBaseUrl },
-      ],
-    });
+    let vercelProjectId = store.deploy?.vercelProjectId;
+    let projectName     = store.deploy?.projectName;
+    let repoId          = store.deploy?.repoId;
+    let url             = store.deploy?.url;
 
-    await db.collection("Store").updateOne(
-      { _id: oid },
-      {
-        $set: {
-          deploy: {
-            vercelProjectId: deployment.projectId,
-            url:             deployment.url,
-            status:          "pending",
-            lastDeployedAt:  new Date().toISOString(),
-          },
-          updatedAt: new Date(),
-        },
-      },
-    );
+    if (vercelProjectId && projectName && repoId) {
+      // Redeploy: refresh env vars on the existing project (they may have changed, e.g.
+      // CRM_BASE_URL) instead of trying to create a project that already exists.
+      await upsertProjectEnvVars(vercelProjectId, envVars);
+    } else {
+      const created = await createStorefrontProject({
+        projectName: `venom-${slugify(store.name)}-${id.slice(-6)}`,
+        envVars,
+      });
+      vercelProjectId = created.projectId;
+      projectName     = created.name;
+      repoId          = created.repoId;
+      url             = created.url;
+    }
 
-    return NextResponse.json({ ok: true, deploy: { vercelProjectId: deployment.projectId, url: deployment.url, status: "pending" } }, { status: 201 });
+    await triggerDeployment({ projectId: vercelProjectId, projectName, repoId });
+
+    const deploy = { vercelProjectId, projectName, repoId, url, status: "pending" as const, lastDeployedAt: new Date().toISOString() };
+    await db.collection("Store").updateOne({ _id: oid }, { $set: { deploy, updatedAt: new Date() } });
+
+    return NextResponse.json({ ok: true, deploy }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Deployment failed";
     await db.collection("Store").updateOne(
       { _id: oid },
-      { $set: { deploy: { status: "error", error: message }, updatedAt: new Date() } },
+      { $set: { "deploy.status": "error", "deploy.error": message, updatedAt: new Date() } },
     );
     return NextResponse.json({ error: message }, { status: 502 });
   }
