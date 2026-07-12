@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { getStoreById } from "@/lib/db/stores";
-import { createStorefrontProject, upsertProjectEnvVars, triggerDeployment, getLatestDeploymentStatus } from "@/lib/vercel";
+import { findProjectByName, createStorefrontProject, upsertProjectEnvVars, triggerDeployment, getLatestDeploymentStatus } from "@/lib/vercel";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -44,23 +44,26 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     { key: "CRM_BASE_URL", value: crmBaseUrl },
   ];
 
-  try {
-    let vercelProjectId = store.deploy?.vercelProjectId;
-    let projectName     = store.deploy?.projectName;
-    let repoId          = store.deploy?.repoId;
-    let url             = store.deploy?.url;
+  const projectName = `venom-${slugify(store.name)}-${id.slice(-6)}`;
 
-    if (vercelProjectId && projectName && repoId) {
-      // Redeploy: refresh env vars on the existing project (they may have changed, e.g.
-      // CRM_BASE_URL) instead of trying to create a project that already exists.
+  try {
+    // Always ask Vercel directly whether this project already exists rather than trusting our
+    // own cached deploy record — it may be missing/stale (e.g. from before we tracked repoId),
+    // and Vercel rejects project creation outright if the deterministic name is already taken.
+    const existing = await findProjectByName(projectName);
+
+    let vercelProjectId: string;
+    let repoId: number;
+    let url: string;
+
+    if (existing) {
+      vercelProjectId = existing.projectId;
+      repoId          = existing.repoId;
+      url             = existing.url;
       await upsertProjectEnvVars(vercelProjectId, envVars);
     } else {
-      const created = await createStorefrontProject({
-        projectName: `venom-${slugify(store.name)}-${id.slice(-6)}`,
-        envVars,
-      });
+      const created = await createStorefrontProject({ projectName, envVars });
       vercelProjectId = created.projectId;
-      projectName     = created.name;
       repoId          = created.repoId;
       url             = created.url;
     }

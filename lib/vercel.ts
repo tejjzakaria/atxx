@@ -7,7 +7,7 @@ function teamQuery(): string {
   return process.env.VERCEL_TEAM_ID ? `?teamId=${encodeURIComponent(process.env.VERCEL_TEAM_ID)}` : "";
 }
 
-async function vercelFetch(path: string, init?: RequestInit): Promise<unknown> {
+async function vercelFetch(path: string, init?: RequestInit & { allow404?: boolean }): Promise<unknown> {
   const token = process.env.VERCEL_API_TOKEN;
   if (!token) throw new Error("VERCEL_API_TOKEN is not configured");
 
@@ -20,6 +20,8 @@ async function vercelFetch(path: string, init?: RequestInit): Promise<unknown> {
     },
   });
 
+  if (init?.allow404 && res.status === 404) return null;
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = (data as { error?: { message?: string } })?.error?.message ?? `Vercel API error (${res.status})`;
@@ -31,6 +33,16 @@ async function vercelFetch(path: string, init?: RequestInit): Promise<unknown> {
 export type VercelEnvVar = { key: string; value: string; sensitive?: boolean };
 
 export type CreatedProject = { projectId: string; name: string; url: string; repoId: number };
+
+// Looks up a project by its (deterministic) name so redeploys can be detected even if our
+// own DB record is missing/stale — Vercel's project list is the source of truth, not our cache.
+export async function findProjectByName(name: string): Promise<CreatedProject | null> {
+  const project = await vercelFetch(`/v9/projects/${encodeURIComponent(name)}${teamQuery()}`, { allow404: true }) as
+    { id: string; name: string; link?: { repoId?: number } } | null;
+
+  if (!project?.link?.repoId) return null;
+  return { projectId: project.id, name: project.name, url: `https://${project.name}.vercel.app`, repoId: project.link.repoId };
+}
 
 // Creates a new Vercel project linked to STOREFRONT_GIT_REPO with the given env vars
 // pre-populated. Does not deploy — call triggerDeployment() with the returned repoId next.
