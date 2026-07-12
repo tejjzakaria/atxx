@@ -50,12 +50,12 @@ function Field({ label, hint, children }: { label: string; hint?: React.ReactNod
   );
 }
 
-function Input({ value, onChange, suffix, placeholder }: {
-  value: string; onChange: (v: string) => void; suffix?: string; placeholder?: string;
+function Input({ value, onChange, suffix, placeholder, type = "text" }: {
+  value: string; onChange: (v: string) => void; suffix?: string; placeholder?: string; type?: string;
 }) {
   return (
     <div className="relative flex items-center">
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type}
         className="w-full h-10 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0d9488] focus:bg-[#f0faf9] focus:ring-2 focus:ring-[#0d9488]/20 transition-all"
         style={{ paddingRight: suffix ? `${suffix.length * 8 + 20}px` : undefined }}
       />
@@ -661,17 +661,21 @@ function PixelsTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void })
   const [ga4,       setGa4]       = useState(store.pixels?.ga4Id       ?? "");
   const [gtm,       setGtm]       = useState(store.pixels?.gtmId       ?? "");
   const [pinterest, setPinterest] = useState(store.pixels?.pinterestId ?? "");
+  const [metaToken,     setMetaToken]     = useState(store.pixels?.metaAccessToken   ?? "");
+  const [metaTestEvent, setMetaTestEvent] = useState(store.pixels?.metaTestEventCode ?? "");
   const { save, saving, saved } = useSave(store._id, onSaved);
 
   function handleSave() {
     save({
       pixels: {
-        metaPixelId: meta.trim(),
-        snapPixelId: snap.trim(),
-        ttPixelId:   tt.trim(),
-        ga4Id:       ga4.trim(),
-        gtmId:       gtm.trim(),
-        pinterestId: pinterest.trim(),
+        metaPixelId:       meta.trim(),
+        snapPixelId:       snap.trim(),
+        ttPixelId:         tt.trim(),
+        ga4Id:             ga4.trim(),
+        gtmId:             gtm.trim(),
+        pinterestId:       pinterest.trim(),
+        metaAccessToken:   metaToken.trim(),
+        metaTestEventCode: metaTestEvent.trim(),
       },
     });
   }
@@ -696,6 +700,16 @@ function PixelsTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void })
         </Field>
         <Field label="Pinterest Tag">
           <Input value={pinterest} onChange={setPinterest} placeholder="1234567890123" />
+        </Field>
+        <SaveButton onClick={handleSave} saving={saving} saved={saved} />
+      </Section>
+
+      <Section title="Meta Conversions API" sub="Server-side Purchase events, deduped against the browser pixel — survives ad-blockers and iOS tracking limits">
+        <Field label="Access Token" hint="Events Manager → your dataset → Settings → Conversions API → Generate access token">
+          <Input value={metaToken} onChange={setMetaToken} placeholder="EAAG..." type="password" />
+        </Field>
+        <Field label="Test Event Code" hint="Optional — for the Test Events tab in Events Manager, remove before going live">
+          <Input value={metaTestEvent} onChange={setMetaTestEvent} placeholder="TEST12345" />
         </Field>
         <SaveButton onClick={handleSave} saving={saving} saved={saved} />
       </Section>

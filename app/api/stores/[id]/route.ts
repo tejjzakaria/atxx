@@ -19,6 +19,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const token = authHeader.slice(7).trim();
     const store = await db.collection("Store").findOne({ _id: oid, apiKey: token });
     if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // Never expose CAPI secrets to the storefront — this response ships to the browser.
+    if (store.pixels) {
+      const { metaAccessToken: _t, metaTestEventCode: _c, ...publicPixels } = store.pixels;
+      return NextResponse.json({ ...store, pixels: publicPixels });
+    }
     return NextResponse.json(store);
   }
 

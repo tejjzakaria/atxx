@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { appendOrderRow, updateOrderStatus } from "@/lib/sheets";
+import { sendMetaPurchaseEvent } from "@/lib/meta-capi";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     total,
     status = "pending",
     paymentMethod = "",
+    eventId,
+    fbp,
+    fbc,
   } = body;
 
   // Basic validation
@@ -144,6 +148,27 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       status,
       paymentMethod:   String(paymentMethod),
     }).catch(err => console.error("[sheets] append failed:", err));
+  }
+
+  // Server-side Meta Conversions API — fire-and-forget, deduped against the
+  // browser pixel's Purchase event via the shared eventId when the storefront sends one.
+  if (store.pixels?.metaPixelId && store.pixels?.metaAccessToken) {
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    sendMetaPurchaseEvent({
+      pixelId:        store.pixels.metaPixelId,
+      accessToken:    store.pixels.metaAccessToken,
+      testEventCode:  store.pixels.metaTestEventCode || undefined,
+      eventId:        String(eventId ?? orderNumber),
+      eventSourceUrl: store.url,
+      value:          Number(total),
+      currency:       store.currency || "MAD",
+      orderNumber:    String(orderNumber),
+      customerPhone:  customerPhone ? String(customerPhone) : undefined,
+      clientIp:       forwardedFor ? forwardedFor.split(",")[0].trim() : undefined,
+      userAgent:      req.headers.get("user-agent") ?? undefined,
+      fbp:            fbp ? String(fbp) : undefined,
+      fbc:            fbc ? String(fbc) : undefined,
+    }).catch(err => console.error("[meta-capi] purchase event failed:", err));
   }
 
   return NextResponse.json({ id: result.insertedId.toString() }, { status: 201 });

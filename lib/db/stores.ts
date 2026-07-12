@@ -85,6 +85,9 @@ export interface StoreDoc {
     ga4Id?:       string;
     gtmId?:       string;
     pinterestId?: string;
+    // Meta Conversions API — never returned to the storefront (see /api/stores/[id] GET)
+    metaAccessToken?:   string;
+    metaTestEventCode?: string;
   };
   notifications?: {
     orders: boolean;
