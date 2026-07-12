@@ -78,13 +78,16 @@ export async function createStorefrontDeployment(opts: {
   return { projectId: project.id, name: project.name, url: `https://${project.name}.vercel.app` };
 }
 
-export type DeploymentStatus = { status: "pending" | "ready" | "error"; url?: string };
+export type DeploymentStatus = { status: "pending" | "ready" | "error" };
 
 // Polls the most recent deployment for a project so the dashboard can show live progress.
+// Deliberately doesn't return a URL: the per-deployment url Vercel's deployments list exposes
+// (name-hash-teamscope.vercel.app) is often gated behind Vercel's own team auth for outsiders —
+// the correct public URL is the stable https://{project.name}.vercel.app alias from creation time.
 export async function getLatestDeploymentStatus(projectId: string): Promise<DeploymentStatus> {
   const data = await vercelFetch(
     `/v6/deployments${teamQuery()}${teamQuery() ? "&" : "?"}projectId=${encodeURIComponent(projectId)}&limit=1`,
-  ) as { deployments?: Array<{ readyState: string; url: string }> };
+  ) as { deployments?: Array<{ readyState: string }> };
 
   const latest = data.deployments?.[0];
   if (!latest) return { status: "pending" };
@@ -95,8 +98,5 @@ export async function getLatestDeploymentStatus(projectId: string): Promise<Depl
     CANCELED: "error",
   };
 
-  return {
-    status: stateMap[latest.readyState] ?? "pending",
-    url: latest.url ? `https://${latest.url}` : undefined,
-  };
+  return { status: stateMap[latest.readyState] ?? "pending" };
 }

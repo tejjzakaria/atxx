@@ -98,7 +98,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const deploy = {
       ...store.deploy,
       status: status.status,
-      url:    status.url ?? store.deploy.url,
     };
 
     await db.collection("Store").updateOne({ _id: oid }, { $set: { deploy, updatedAt: new Date() } });
