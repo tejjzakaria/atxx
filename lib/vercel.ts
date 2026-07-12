@@ -69,6 +69,9 @@ export async function createStorefrontDeployment(opts: {
       project: project.id,
       target: "production",
       gitSource: { type: "github", repoId, ref: "main" },
+      // Required on a project's very first deployment — Vercel has no prior build to infer
+      // framework/build settings from yet. The storefront is always Next.js, so declare it.
+      projectSettings: { framework: "nextjs" },
     }),
   });
 
