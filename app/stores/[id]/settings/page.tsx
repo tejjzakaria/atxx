@@ -7,7 +7,7 @@ import type { StoreDoc, StoreContent } from "@/lib/db/stores";
 import { PageHeader } from "@/components/PageHeader";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
-type Tab = "general" | "appearance" | "api" | "content" | "pixels" | "danger";
+type Tab = "general" | "appearance" | "api" | "deploy" | "content" | "pixels" | "danger";
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -22,6 +22,10 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   {
     id: "api", label: "API",
     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+  },
+  {
+    id: "deploy", label: "Deploy",
+    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 19h20L12 2z"/></svg>,
   },
   {
     id: "content", label: "Content",
@@ -647,6 +651,103 @@ const product = await res2.json();`}</pre>
             <ResponseBadge code="404 Not Found"    color="amber"   desc="Product not found" />
             <ResponseBadge code="401 Unauthorized" color="red"     desc="Invalid API key" />
           </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ─── Tab: Deploy ────────────────────────────────────────────────────── */
+type DeployState = StoreDoc["deploy"];
+
+function StatusPill({ status }: { status: NonNullable<DeployState>["status"] }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    pending: { label: "Deploying…", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    ready:   { label: "Live",       cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    error:   { label: "Failed",     cls: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const s = status ? map[status] : undefined;
+  if (!s) return null;
+  return <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${s.cls}`}>{s.label}</span>;
+}
+
+function DeployTab({ store, onSaved }: { store: StoreDoc; onSaved: () => void }) {
+  const [deploy,     setDeploy]     = useState<DeployState>(store.deploy);
+  const [deploying,  setDeploying]  = useState(false);
+  const [error,      setError]      = useState<string | null>(deploy?.error ?? null);
+
+  useEffect(() => {
+    if (deploy?.status !== "pending") return;
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/stores/${store._id}/deploy`);
+      if (!res.ok) return;
+      const d = await res.json();
+      if (d.deploy) setDeploy(d.deploy);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [deploy?.status, store._id]);
+
+  async function handleDeploy() {
+    setDeploying(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/stores/${store._id}/deploy`, { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Deployment failed");
+      setDeploy(d.deploy);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Deployment failed");
+    } finally {
+      setDeploying(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Section
+        title="Storefront Deployment"
+        sub="Provisions a new Vercel project from the storefront template, wired up with this store's STORE_ID and API key — no manual copy-pasting env vars."
+      >
+        <div className="py-4 space-y-4">
+          {deploy?.status && (
+            <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <StatusPill status={deploy.status} />
+                {deploy.url && (
+                  <a href={deploy.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#0d9488] hover:underline">
+                    {deploy.url.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
+              </div>
+              {deploy.lastDeployedAt && (
+                <span className="text-xs text-gray-400">
+                  {new Date(deploy.lastDeployedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          )}
+
+          {(error ?? deploy?.error) && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-xs text-red-700">{error ?? deploy?.error}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleDeploy}
+            disabled={deploying || deploy?.status === "pending"}
+            className="h-10 px-5 rounded-xl bg-[#0d3d38] hover:bg-[#0f4a43] disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+          >
+            {deploying ? "Starting deployment…" : deploy?.vercelProjectId ? "Redeploy" : "Deploy Storefront"}
+          </button>
+
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Requires <code className="bg-gray-100 px-1 rounded font-mono">VERCEL_API_TOKEN</code> and{" "}
+            <code className="bg-gray-100 px-1 rounded font-mono">STOREFRONT_GIT_REPO</code> configured on the CRM.
+            The new project deploys from that repo&apos;s <code className="bg-gray-100 px-1 rounded font-mono">main</code> branch —
+            attach a custom domain from the Vercel dashboard afterward.
+          </p>
         </div>
       </Section>
     </div>
@@ -2156,6 +2257,7 @@ export default function SettingsPage() {
             {tab === "general"    && <GeneralTab    store={store} onSaved={refresh} />}
             {tab === "appearance" && <AppearanceTab store={store} onSaved={refresh} />}
             {tab === "api"        && <ApiTab        store={store} />}
+            {tab === "deploy"     && <DeployTab     store={store} onSaved={refresh} />}
             {tab === "content"    && <ContentTab    store={store} onSaved={refresh} />}
             {tab === "pixels"     && <PixelsTab     store={store} onSaved={refresh} />}
             {tab === "danger"     && <DangerTab     store={store} />}

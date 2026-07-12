@@ -105,6 +105,13 @@ export interface StoreDoc {
   activeLocales?: string[];
   sections?: SectionInstance[];
   pages?: Record<string, SectionInstance[]>;
+  deploy?: {
+    vercelProjectId?: string;
+    url?:             string;
+    status?:          "pending" | "ready" | "error";
+    error?:           string;
+    lastDeployedAt?:  string;
+  };
 }
 
 export interface OrderItem {
