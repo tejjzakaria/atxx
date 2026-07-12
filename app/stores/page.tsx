@@ -42,6 +42,13 @@ function ArrowRight() {
     </svg>
   );
 }
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
 
 /* ─── Hero quick-stat pill ───────────────────────────────────────────── */
 function HeroPill({ label, value }: { label: string; value: string }) {
@@ -54,12 +61,20 @@ function HeroPill({ label, value }: { label: string; value: string }) {
 }
 
 /* ─── Store card ─────────────────────────────────────────────────────── */
-function StoreCard({ store }: { store: DbStore }) {
+function StoreCard({ store, onDelete }: { store: DbStore; onDelete: (store: DbStore) => void }) {
   return (
     <Link
       href={`/stores/${store._id}`}
       className="group relative bg-white rounded-2xl overflow-hidden flex flex-col shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
     >
+      <button
+        onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(store); }}
+        title="Delete store"
+        className="absolute top-3 right-3 z-10 w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 bg-white/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:!text-red-500 hover:bg-red-50 transition-all"
+      >
+        <TrashIcon />
+      </button>
+
       <div className="h-1 w-full" style={{ backgroundColor: store.color }} />
 
       <div className="p-6 flex flex-col gap-5 flex-1">
@@ -242,11 +257,86 @@ function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   );
 }
 
+/* ─── Delete store modal ──────────────────────────────────────────────── */
+function DeleteStoreModal({ store, onClose, onDeleted }: { store: DbStore; onClose: () => void; onDeleted: () => void }) {
+  const [confirmInput, setConfirmInput] = useState("");
+  const [deleting,     setDeleting]     = useState(false);
+  const [error,        setError]        = useState("");
+
+  async function handleDelete() {
+    if (confirmInput !== store.name) return;
+    setDeleting(true);
+    setError("");
+    const res = await fetch(`/api/stores/${store._id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to delete store");
+      setDeleting(false);
+      return;
+    }
+    onDeleted();
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="h-1.5 w-full bg-red-500" />
+        <div className="p-8">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <h2 className="text-lg font-bold text-gray-900">Delete Store</h2>
+            </div>
+            <button onClick={onClose} className="text-gray-300 hover:text-gray-600 transition-colors">
+              <XIcon />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 leading-relaxed mb-5">
+            Deleting <span className="font-semibold text-gray-900">{store.name}</span> will permanently remove all products, orders, customer data, and analytics. This cannot be reversed.
+          </p>
+
+          {error && (
+            <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+          )}
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-600">
+              Type <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">{store.name}</span> to confirm
+            </p>
+            <input
+              value={confirmInput} onChange={e => setConfirmInput(e.target.value)}
+              placeholder={store.name} autoFocus
+              className="w-full h-10 px-4 rounded-xl border-2 border-red-200 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all bg-red-50/50"
+            />
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose}
+                className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={confirmInput !== store.name || deleting}
+                className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {deleting ? "Deleting…" : "Delete Store"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────── */
 export default function StoreSelector() {
-  const [stores,    setStores]    = useState<DbStore[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [stores,        setStores]        = useState<DbStore[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [modalOpen,     setModalOpen]     = useState(false);
+  const [deletingStore, setDeletingStore] = useState<DbStore | null>(null);
   const { data: session } = useSession();
 
   const hour = new Date().getHours();
@@ -324,7 +414,7 @@ export default function StoreSelector() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {loading
             ? [0,1,2].map(i => <SkeletonCard key={i} />)
-            : stores.map(store => <StoreCard key={store._id} store={store} />)
+            : stores.map(store => <StoreCard key={store._id} store={store} onDelete={setDeletingStore} />)
           }
           {!loading && <AddStoreCard onClick={() => setModalOpen(true)} />}
         </div>
@@ -334,6 +424,14 @@ export default function StoreSelector() {
         <AddStoreModal
           onClose={() => setModalOpen(false)}
           onCreated={fetchStores}
+        />
+      )}
+
+      {deletingStore && (
+        <DeleteStoreModal
+          store={deletingStore}
+          onClose={() => setDeletingStore(null)}
+          onDeleted={fetchStores}
         />
       )}
     </div>
