@@ -153,6 +153,13 @@ export default function StoreSidebar({ store, allStores }: { store: StoreDoc; al
             </Link>
           );
         })}
+        {session?.user?.role === "admin" && (
+          <Link href="/admin/stores"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:bg-white/10 hover:text-white/80 transition-all duration-150 mt-3 border-t border-white/10 pt-4">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Admin
+          </Link>
+        )}
       </nav>
 
       {/* User */}

@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 import { randomBytes } from "crypto";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
-import { getStoreById } from "@/lib/db/stores";
+import { resolveStoreForSession } from "@/lib/db/stores";
 import { findProjectByName, createStorefrontProject, upsertProjectEnvVars, triggerDeployment, getLatestDeploymentStatus } from "@/lib/vercel";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const store = await getStoreById(id, session.user.id);
+  const store = await resolveStoreForSession(id, session);
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Derived from the request that hit crm-dash itself, so it's always correct regardless of
@@ -90,7 +90,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const store = await getStoreById(id, session.user.id);
+  const store = await resolveStoreForSession(id, session);
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (!store.deploy?.vercelProjectId) {

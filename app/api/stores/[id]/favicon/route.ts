@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { auth } from "@/auth";
-import { getStoreById } from "@/lib/db/stores";
+import { resolveStoreForSession } from "@/lib/db/stores";
 import { getDb } from "@/lib/mongodb";
 import { s3, S3_BUCKET, s3PublicUrl } from "@/lib/s3";
 import { ObjectId } from "mongodb";
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const store = await getStoreById(id, session.user.id);
+  const store = await resolveStoreForSession(id, session);
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const form = await req.formData();

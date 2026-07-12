@@ -175,6 +175,49 @@ export async function getStoreById(id: string, ownerId: string): Promise<StoreDo
   } as StoreDoc;
 }
 
+// Builds the Mongo filter for "does this session have access to store `id`?" —
+// admins bypass the ownerId check entirely, owners keep today's exact filter shape.
+export function storeSessionFilter(id: string, session: { user: { id: string; role?: string } }) {
+  const oid = new ObjectId(id);
+  return session.user.role === "admin"
+    ? { _id: oid }
+    : { _id: oid, ownerId: new ObjectId(session.user.id) };
+}
+
+// Drop-in replacement for getStoreById(id, session.user.id) that also lets admins through
+// to any store, not just their own.
+export async function resolveStoreForSession(
+  id: string,
+  session: { user: { id: string; role?: string } },
+): Promise<StoreDoc | null> {
+  if (!ObjectId.isValid(id)) return null;
+
+  const db = getDb();
+  const store = await db.collection("Store").findOne(storeSessionFilter(id, session));
+
+  if (!store) return null;
+
+  return {
+    ...store,
+    _id: store._id.toString(),
+    ownerId: store.ownerId.toString(),
+  } as StoreDoc;
+}
+
+// Admin-only: every store across every owner.
+export async function getAllStores(): Promise<StoreDoc[]> {
+  const db = getDb();
+  const stores = await db.collection("Store")
+    .find({})
+    .sort({ createdAt: -1 })
+    .toArray();
+  return stores.map(s => ({
+    ...s,
+    _id: s._id.toString(),
+    ownerId: s.ownerId?.toString() ?? "",
+  } as StoreDoc));
+}
+
 export interface StoreStats {
   ordersByStatus: { fulfilled: number; pending: number; cancelled: number; total: number };
   /** Revenue per day for the last 7 days (index 0 = oldest) */

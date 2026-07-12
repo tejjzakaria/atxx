@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import client, { getDb } from "@/lib/mongodb";
 import { authConfig } from "./auth.config";
+import type { Role } from "@/lib/auth/role";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -34,7 +35,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id:    user._id.toString(),
           name:  user.name  ?? null,
           email: user.email as string,
-          role:  user.role  ?? "owner",
+          role:  (user.role as Role) ?? "owner",
         };
       },
     }),
@@ -43,13 +44,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id   = user.id;
-        token.role = user.role ?? "owner";
+        token.role = (user.role as Role) ?? "owner";
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id   = token.id as string;
-      session.user.role = token.role as string;
+      session.user.role = token.role as Role;
       return session;
     },
   },

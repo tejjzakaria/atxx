@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
+import { storeSessionFilter } from "@/lib/db/stores";
 
 type Ctx = { params: Promise<{ id: string; productId: string }> };
 
@@ -19,7 +20,7 @@ async function resolveStore(req: NextRequest, storeId: string) {
 
   const session = await auth();
   if (!session?.user?.id) return null;
-  return await db.collection("Store").findOne({ _id: oid, ownerId: new ObjectId(session.user.id) });
+  return await db.collection("Store").findOne(storeSessionFilter(storeId, session));
 }
 
 /* ── Resolve product by ObjectId OR slug ─────────────────────────────── */

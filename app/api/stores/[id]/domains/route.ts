@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getStoreById } from "@/lib/db/stores";
+import { resolveStoreForSession } from "@/lib/db/stores";
 import { listProjectDomains, addDomainToProject, removeDomainFromProject } from "@/lib/vercel";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ async function resolveStoreWithProject(id: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  const store = await getStoreById(id, session.user.id);
+  const store = await resolveStoreForSession(id, session);
   if (!store) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
 
   if (!store.deploy?.vercelProjectId) {

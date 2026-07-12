@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
-import { getStoreById } from "@/lib/db/stores";
+import { resolveStoreForSession } from "@/lib/db/stores";
 import { getDb } from "@/lib/mongodb";
 
 const DAY_NAMES   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const store = await getStoreById(id, session.user.id);
+  const store = await resolveStoreForSession(id, session);
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const range = req.nextUrl.searchParams.get("range") ?? "7D";

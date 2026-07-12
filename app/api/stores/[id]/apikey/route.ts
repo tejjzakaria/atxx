@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { randomBytes } from "crypto";
+import { storeSessionFilter } from "@/lib/db/stores";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,10 +20,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const db = getDb();
-  const store = await db.collection("Store").findOne({
-    _id: new ObjectId(id),
-    ownerId: new ObjectId(session.user.id),
-  });
+  const store = await db.collection("Store").findOne(storeSessionFilter(id, session));
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ apiKey: store.apiKey ?? null });
@@ -37,10 +35,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const db = getDb();
-  const store = await db.collection("Store").findOne({
-    _id: new ObjectId(id),
-    ownerId: new ObjectId(session.user.id),
-  });
+  const store = await db.collection("Store").findOne(storeSessionFilter(id, session));
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const apiKey = generateKey();

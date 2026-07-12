@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
-import { getStoreById, getRecentOrders, getStoreStats, type OrderDoc } from "@/lib/db/stores";
+import { resolveStoreForSession, getRecentOrders, getStoreStats, type OrderDoc } from "@/lib/db/stores";
 import { fmtRevenue, STATUS_DOT, STATUS_BADGE } from "@/lib/stores";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -195,7 +195,7 @@ export default async function StoreDashboard({ params }: { params: Promise<{ id:
   if (!session?.user?.id) notFound();
 
   const [store, recentOrders, stats] = await Promise.all([
-    getStoreById(id, session.user.id),
+    resolveStoreForSession(id, session),
     getRecentOrders(id),
     getStoreStats(id),
   ]);

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/lib/mongodb";
 import { appendOrderRow, updateOrderStatus } from "@/lib/sheets";
 import { sendMetaPurchaseEvent } from "@/lib/meta-capi";
+import { storeSessionFilter } from "@/lib/db/stores";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,10 +27,7 @@ async function resolveStore(req: NextRequest, id: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const store = await db.collection("Store").findOne({
-    _id: oid,
-    ownerId: new ObjectId(session.user.id),
-  });
+  const store = await db.collection("Store").findOne(storeSessionFilter(id, session));
   return store ?? null;
 }
 
@@ -44,8 +42,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const db  = getDb();
   const oid = new ObjectId(id);
 
-  // Ensure session owns this store
-  const store = await db.collection("Store").findOne({ _id: oid, ownerId: new ObjectId(session.user.id) });
+  // Ensure session has access to this store
+  const store = await db.collection("Store").findOne(storeSessionFilter(id, session));
   if (!store) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const orders = await db
