@@ -12,7 +12,7 @@ export async function GET() {
   const db = getDb();
   const users = await db.collection("User")
     .find({})
-    .project({ name: 1, email: 1, role: 1, createdAt: 1 })
+    .project({ name: 1, email: 1, role: 1, status: 1, createdAt: 1, lastLoginAt: 1 })
     .sort({ createdAt: -1 })
     .toArray();
 
@@ -23,11 +23,13 @@ export async function GET() {
 
   return NextResponse.json(
     users.map(u => ({
-      _id:        u._id.toString(),
-      name:       u.name ?? "",
-      email:      u.email,
-      role:       u.role ?? "owner",
-      storeCount: countMap.get(u._id.toString()) ?? 0,
+      _id:         u._id.toString(),
+      name:        u.name ?? "",
+      email:       u.email,
+      role:        u.role ?? "owner",
+      status:      u.status ?? "active",
+      lastLoginAt: u.lastLoginAt ?? null,
+      storeCount:  countMap.get(u._id.toString()) ?? 0,
     })),
   );
 }

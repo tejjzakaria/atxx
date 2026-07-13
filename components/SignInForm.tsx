@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import ATXXLogo from "@/components/ATXXLogo";
 
 /* ─── Icon primitives ──────────────────────────────────────────────── */
@@ -112,7 +112,8 @@ export default function SignInForm() {
     if (res?.error) {
       setError("Invalid email or password.");
     } else {
-      router.push("/stores");
+      const session = await getSession();
+      router.push(session?.user?.role === "admin" ? "/admin/stores" : "/stores");
       router.refresh();
     }
   }

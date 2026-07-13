@@ -352,6 +352,125 @@ export async function getStoreStats(storeId: string): Promise<StoreStats> {
   };
 }
 
+export interface GlobalStoreStats {
+  storeCount: number;
+  activeStoreCount: number;
+  ordersByStatus: { fulfilled: number; pending: number; cancelled: number; total: number };
+  /** Revenue per day for the last 7 days (index 0 = oldest) */
+  dailyRevenue: number[];
+  /** Order count per day for the last 7 days */
+  dailyOrders: number[];
+  /** Labels for each of the 7 days e.g. "Mon", "Tue" */
+  dailyLabels: string[];
+  avgOrderValue: number;
+  fulfillmentRate: number; // 0-100
+  /** Top 5 stores by delivered revenue — stores, not products, since product names collide across stores. */
+  topStores: { id: string; name: string; revenue: number; orders: number }[];
+}
+
+// Admin-only: same shape/approach as getStoreStats, but aggregated across every store —
+// a genuinely new function rather than a parameterized reuse, since getStoreStats' internal
+// grouping (e.g. topProducts by name) assumes single-store scope throughout.
+export async function getGlobalStoreStats(): Promise<GlobalStoreStats> {
+  const db = getDb();
+
+  const now = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (6 - i));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const weekStart = days[0];
+
+  const [storeCount, activeStoreCount, statusAgg, dailyAgg, topStoresAgg] = await Promise.all([
+    db.collection("Store").countDocuments({}),
+    db.collection("Store").countDocuments({ status: "Active" }),
+
+    db.collection("Order").aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]).toArray(),
+
+    db.collection("Order").aggregate([
+      { $match: { createdAt: { $gte: weekStart } } },
+      {
+        $group: {
+          _id: {
+            year:  { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            day:   { $dayOfMonth: "$createdAt" },
+            status: "$status",
+          },
+          revenue: { $sum: "$total" },
+          count:   { $sum: 1 },
+        },
+      },
+    ]).toArray(),
+
+    db.collection("Order").aggregate([
+      { $match: { status: "delivered" } },
+      { $group: { _id: "$storeId", revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+    ]).toArray(),
+  ]);
+
+  const statusMap: Record<string, number> = {};
+  for (const s of statusAgg) statusMap[s._id as string] = s.count;
+  const fulfilled = statusMap["delivered"] ?? 0;
+  const pending   = (statusMap["pending"] ?? 0) + (statusMap["confirmed"] ?? 0) + (statusMap["shipped"] ?? 0);
+  const cancelled = statusMap["cancelled"] ?? 0;
+  const total     = fulfilled + pending + cancelled;
+
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const dailyRevenue = new Array(7).fill(0);
+  const dailyOrders  = new Array(7).fill(0);
+
+  for (const row of dailyAgg) {
+    const rowDate = new Date(row._id.year, row._id.month - 1, row._id.day);
+    const idx = days.findIndex(d =>
+      d.getFullYear() === rowDate.getFullYear() &&
+      d.getMonth()    === rowDate.getMonth() &&
+      d.getDate()     === rowDate.getDate()
+    );
+    if (idx === -1) continue;
+    dailyOrders[idx] += row.count;
+    if (row._id.status === "delivered") dailyRevenue[idx] += row.revenue;
+  }
+
+  const dailyLabels = days.map(d => DAYS[d.getDay()]);
+
+  const totalFulfilledRevenue = dailyRevenue.reduce((a: number, b: number) => a + b, 0);
+  const avgOrderValue = fulfilled > 0 ? Math.round(totalFulfilledRevenue / fulfilled) : 0;
+  const fulfillmentRate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
+
+  const storeIds = topStoresAgg.map(s => s._id).filter(Boolean);
+  const storeDocs = await db.collection("Store")
+    .find({ _id: { $in: storeIds } })
+    .project({ name: 1 })
+    .toArray();
+  const storeNameMap = new Map(storeDocs.map(s => [s._id.toString(), s.name as string]));
+
+  const topStores = topStoresAgg.map(s => ({
+    id: s._id?.toString() ?? "",
+    name: storeNameMap.get(s._id?.toString()) ?? "Unknown store",
+    revenue: s.revenue,
+    orders: s.orders,
+  }));
+
+  return {
+    storeCount,
+    activeStoreCount,
+    ordersByStatus: { fulfilled, pending, cancelled, total },
+    dailyRevenue,
+    dailyOrders,
+    dailyLabels,
+    avgOrderValue,
+    fulfillmentRate,
+    topStores,
+  };
+}
+
 function emptyStats(): StoreStats {
   return {
     ordersByStatus: { fulfilled: 0, pending: 0, cancelled: 0, total: 0 },

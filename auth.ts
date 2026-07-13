@@ -24,12 +24,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await db.collection("User").findOne({ email: credentials.email });
 
         if (!user || !user.password) return null;
+        if (user.status === "suspended") return null;
 
         const valid = await bcrypt.compare(
           credentials.password as string,
           user.password as string,
         );
         if (!valid) return null;
+
+        await db.collection("User").updateOne(
+          { _id: user._id },
+          { $set: { lastLoginAt: new Date() } },
+        );
 
         return {
           id:    user._id.toString(),

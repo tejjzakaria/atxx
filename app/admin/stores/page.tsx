@@ -124,8 +124,8 @@ export default async function AdminStoresPage() {
                     <td className="px-6 py-3.5 text-gray-700">{fmtRevenue(s.revenue)}</td>
                     <td className="px-6 py-3.5 text-gray-700">{s.orders.toLocaleString()}</td>
                     <td className="px-6 py-3.5 text-right">
-                      <Link href={`/stores/${s._id}`} className="text-xs font-semibold text-[#0d9488] hover:underline whitespace-nowrap">
-                        Open dashboard →
+                      <Link href={`/admin/stores/${s._id}`} className="text-xs font-semibold text-[#0d9488] hover:underline whitespace-nowrap">
+                        View store →
                       </Link>
                     </td>
                   </tr>
