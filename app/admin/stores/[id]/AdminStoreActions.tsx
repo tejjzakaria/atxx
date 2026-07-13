@@ -214,6 +214,13 @@ export default function AdminStoreActions({
         </button>
 
         <a
+          href={`/stores/${storeId}/settings`}
+          className="h-10 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-[#0d9488] hover:bg-gray-50 transition-colors flex items-center"
+        >
+          Store Settings →
+        </a>
+
+        <a
           href={`/stores/${storeId}`}
           className="h-10 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-[#0d9488] hover:bg-gray-50 transition-colors flex items-center"
         >

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { auth } from "@/auth";
+import { getPlatformSettings } from "@/lib/db/settings";
 
 export async function GET() {
   const session = await auth();
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
 
   const now = new Date();
   const db = getDb();
+  const { defaultCurrency, defaultCountry } = await getPlatformSettings();
 
   const result = await db.collection("Store").insertOne({
     _id: new ObjectId(),
@@ -42,6 +44,8 @@ export async function POST(req: NextRequest) {
     status: "Active",
     color: color ?? "#0d9488",
     initials: initials ?? name.trim().split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase(),
+    currency: defaultCurrency,
+    country: defaultCountry,
     revenue: 0,
     orders: 0,
     customers: 0,
