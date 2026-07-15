@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 type UserRow = {
   _id: string;
@@ -98,6 +99,8 @@ export default function AdminUsersPage() {
   const [error,      setError]      = useState("");
   const [search,     setSearch]     = useState("");
   const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
+  const [pendingRole,   setPendingRole]   = useState<UserRow | null>(null);
+  const [pendingSuspend, setPendingSuspend] = useState<UserRow | null>(null);
 
   const fetchUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -124,6 +127,7 @@ export default function AdminUsersPage() {
     });
     const data = await res.json().catch(() => ({}));
     setBusyId(null);
+    setPendingRole(null);
     if (!res.ok) { setError(data.error ?? "Failed to update role"); return; }
     fetchUsers();
   }
@@ -139,6 +143,7 @@ export default function AdminUsersPage() {
     });
     const data = await res.json().catch(() => ({}));
     setBusyId(null);
+    setPendingSuspend(null);
     if (!res.ok) { setError(data.error ?? "Failed to update status"); return; }
     fetchUsers();
   }
@@ -204,7 +209,7 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-3">
                           <button
-                            onClick={() => toggleRole(u)}
+                            onClick={() => setPendingRole(u)}
                             disabled={busyId === u._id || isSelf}
                             title={isSelf ? "You can't change your own role" : undefined}
                             className="text-xs font-semibold text-[#0d9488] hover:underline disabled:opacity-40 disabled:no-underline whitespace-nowrap"
@@ -212,7 +217,7 @@ export default function AdminUsersPage() {
                             {busyId === u._id ? "…" : u.role === "admin" ? "Demote" : "Promote"}
                           </button>
                           <button
-                            onClick={() => toggleStatus(u)}
+                            onClick={() => u.status === "suspended" ? toggleStatus(u) : setPendingSuspend(u)}
                             disabled={busyId === u._id || isSelf}
                             title={isSelf ? "You can't suspend your own account" : undefined}
                             className="text-xs font-semibold text-amber-600 hover:underline disabled:opacity-40 disabled:no-underline whitespace-nowrap"
@@ -243,6 +248,34 @@ export default function AdminUsersPage() {
           user={deletingUser}
           onClose={() => setDeletingUser(null)}
           onDeleted={fetchUsers}
+        />
+      )}
+
+      {pendingRole && (
+        <ConfirmDialog
+          title={pendingRole.role === "admin" ? "Demote to Owner" : "Promote to Admin"}
+          message={
+            pendingRole.role === "admin"
+              ? `Remove admin access from ${pendingRole.email}? They'll only be able to see their own stores.`
+              : `Give ${pendingRole.email} full admin access — every store, every user, platform settings. Are you sure?`
+          }
+          confirmLabel={pendingRole.role === "admin" ? "Demote" : "Promote"}
+          danger={pendingRole.role !== "admin"}
+          confirming={busyId === pendingRole._id}
+          onClose={() => setPendingRole(null)}
+          onConfirm={() => toggleRole(pendingRole)}
+        />
+      )}
+
+      {pendingSuspend && (
+        <ConfirmDialog
+          title="Suspend User"
+          message={`Suspend ${pendingSuspend.email}? They won't be able to log in until reactivated.`}
+          confirmLabel="Suspend"
+          danger
+          confirming={busyId === pendingSuspend._id}
+          onClose={() => setPendingSuspend(null)}
+          onConfirm={() => toggleStatus(pendingSuspend)}
         />
       )}
     </div>

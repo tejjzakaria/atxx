@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Status } from "@/lib/stores";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 type UserOption = { _id: string; name: string; email: string };
 
@@ -134,6 +135,8 @@ export default function AdminStoreActions({
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [keyMessage, setKeyMessage] = useState("");
+  const [confirmPause, setConfirmPause] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   async function togglePause() {
     const next: Status = currentStatus === "Paused" ? "Active" : "Paused";
@@ -145,6 +148,7 @@ export default function AdminStoreActions({
       body: JSON.stringify({ status: next }),
     });
     setBusy(false);
+    setConfirmPause(false);
     if (!res.ok) { setError("Failed to update status"); return; }
     setCurrentStatus(next);
     router.refresh();
@@ -157,6 +161,7 @@ export default function AdminStoreActions({
     const res = await fetch(`/api/stores/${storeId}/apikey`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
+    setConfirmRegenerate(false);
     if (!res.ok) { setError(data.error ?? "Failed to regenerate key"); return; }
     setKeyMessage("New API key generated — visible in this store's own Settings → API tab.");
   }
@@ -191,7 +196,7 @@ export default function AdminStoreActions({
 
       <div className="flex flex-col gap-2">
         <button
-          onClick={togglePause}
+          onClick={() => currentStatus === "Paused" ? togglePause() : setConfirmPause(true)}
           disabled={busy}
           className="h-10 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 text-left"
         >
@@ -199,7 +204,7 @@ export default function AdminStoreActions({
         </button>
 
         <button
-          onClick={regenerateKey}
+          onClick={() => setConfirmRegenerate(true)}
           disabled={busy}
           className="h-10 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 text-left"
         >
@@ -250,6 +255,30 @@ export default function AdminStoreActions({
           deleting={deleting}
           onClose={() => setShowDelete(false)}
           onConfirm={handleDelete}
+        />
+      )}
+
+      {confirmPause && (
+        <ConfirmDialog
+          title="Pause Store"
+          message={`Pause ${storeName}? Its storefront will stop being accessible to customers until you resume it.`}
+          confirmLabel="Pause Store"
+          danger
+          confirming={busy}
+          onClose={() => setConfirmPause(false)}
+          onConfirm={togglePause}
+        />
+      )}
+
+      {confirmRegenerate && (
+        <ConfirmDialog
+          title="Regenerate API Key"
+          message={`This immediately invalidates ${storeName}'s current API key. Its deployed storefront will fail to submit orders until its CRM_API_KEY env var is updated and redeployed with the new key.`}
+          confirmLabel="Regenerate Key"
+          danger
+          confirming={busy}
+          onClose={() => setConfirmRegenerate(false)}
+          onConfirm={regenerateKey}
         />
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fmtRevenue } from "@/lib/stores";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 type ProductRow = {
   id: string;
@@ -152,6 +153,7 @@ export default function AdminProductsPage() {
   const [editing,  setEditing]  = useState<ProductRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ProductRow | null>(null);
 
   const fetchProducts = useCallback(async () => {
     const params = new URLSearchParams();
@@ -171,6 +173,7 @@ export default function AdminProductsPage() {
     setDeletingId(id);
     const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     setDeletingId(null);
+    setConfirmDelete(null);
     if (!res.ok) { setError("Failed to delete product"); return; }
     fetchProducts();
   }
@@ -261,7 +264,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => setEditing(p)} className="text-xs font-semibold text-[#0d9488] hover:underline">Edit</button>
                         <button
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => setConfirmDelete(p)}
                           disabled={deletingId === p.id}
                           className="text-xs font-semibold text-red-500 hover:underline disabled:opacity-40"
                         >
@@ -276,6 +279,18 @@ export default function AdminProductsPage() {
           )}
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete Product"
+          message={`Delete "${confirmDelete.name}" from ${confirmDelete.storeName}? This can't be undone.`}
+          confirmLabel="Delete"
+          danger
+          confirming={deletingId === confirmDelete.id}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={() => handleDelete(confirmDelete.id)}
+        />
+      )}
 
       {(editing || creating) && (
         <ProductModal

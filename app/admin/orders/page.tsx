@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fmtRevenue } from "@/lib/stores";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 type OrderRow = {
   id: string;
@@ -39,6 +40,7 @@ export default function AdminOrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState("");
   const [dateFrom,      setDateFrom]      = useState("");
   const [dateTo,        setDateTo]        = useState("");
+  const [pendingChange, setPendingChange] = useState<{ order: OrderRow; status: OrderRow["status"] } | null>(null);
 
   const fetchOrders = useCallback(async () => {
     const params = new URLSearchParams();
@@ -63,6 +65,7 @@ export default function AdminOrdersPage() {
       body: JSON.stringify({ status }),
     });
     setBusyId(null);
+    setPendingChange(null);
     if (!res.ok) { setError("Failed to update order status"); return; }
     fetchOrders();
   }
@@ -144,7 +147,7 @@ export default function AdminOrdersPage() {
                       <select
                         value={o.status}
                         disabled={busyId === o.id}
-                        onChange={e => updateStatus(o, e.target.value as OrderRow["status"])}
+                        onChange={e => setPendingChange({ order: o, status: e.target.value as OrderRow["status"] })}
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full border outline-none disabled:opacity-50 ${STATUS_BADGE[o.status]}`}
                       >
                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -157,6 +160,18 @@ export default function AdminOrdersPage() {
           )}
         </div>
       </div>
+
+      {pendingChange && (
+        <ConfirmDialog
+          title="Change Order Status"
+          message={`Change ${pendingChange.order.orderNumber}'s status from "${pendingChange.order.status}" to "${pendingChange.status}"?${pendingChange.status === "cancelled" ? " This will also sync to the store's connected spreadsheet, if any." : ""}`}
+          confirmLabel="Change Status"
+          danger={pendingChange.status === "cancelled"}
+          confirming={busyId === pendingChange.order.id}
+          onClose={() => setPendingChange(null)}
+          onConfirm={() => updateStatus(pendingChange.order, pendingChange.status)}
+        />
+      )}
     </div>
   );
 }
